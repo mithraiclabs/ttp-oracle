@@ -6,10 +6,8 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
-import * as BufferLayout from "buffer-layout";
 
-// TODO determine proper struct
-const OracleDataAccountLayout = BufferLayout.struct([]);
+import DataAccount from "../models/DataAccount";
 
 export const createDataAccountForProgram = async (
   connection: Connection,
@@ -17,7 +15,7 @@ export const createDataAccountForProgram = async (
   programId: PublicKey
 ): Promise<Account> => {
   const dataAccount = new Account();
-  const space = OracleDataAccountLayout.span;
+  const space = DataAccount.bufferLayout.span;
   const lamps = await connection.getMinimumBalanceForRentExemption(
     space
   );
