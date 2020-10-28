@@ -6,7 +6,7 @@ if [ "$1" ]; then
   program_name=$1
   echo "Testing ${program_name}..."
 
-  cargo test --features program --manifest-path "../programs/${program_name}/Cargo.toml"
+  cargo +nightly test --features program --manifest-path "../programs/${program_name}/Cargo.toml"
 else
   for dir in ../programs/*/
   do
@@ -15,7 +15,7 @@ else
 
   echo "Testing ${program_name}..."
 
-  cargo test --features program --manifest-path "${program_path}/Cargo.toml"
+  cargo +nightly test --features program --manifest-path "${program_path}/Cargo.toml"
 
   echo "End testing of ${program_name}"
   done
