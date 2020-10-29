@@ -1,0 +1,23 @@
+{
+  "name": "@mithraic_labs/ttp-oracle-server",
+  "version": "0.0.1",
+  "description": "Server for handling Solana program requests",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build ./tsconfig.server.json",
+    "start": "node ./dist/index.js",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^26.6.1"
+  },
+  "dependencies": {
+    "@solana/web3.js": "0.78.2",
+    "buffer-layout": "^1.2.0"
+  }
+}

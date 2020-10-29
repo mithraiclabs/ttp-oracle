@@ -105,7 +105,6 @@ export default class TestHelper {
     payerAccount: Account,
     name: string
   ): Promise<void> {
-    console.log(`Loading program at ${pathToProgram}...`);
     const data = await fs.readFile(pathToProgram);
     const programAccount = new Account();
     await BpfLoader.load(
@@ -117,7 +116,6 @@ export default class TestHelper {
     );
     const programId = programAccount.publicKey;
     this.programs[name] = programId;
-    console.log("Program loaded to account", programId.toBase58());
   }
 
   /**
