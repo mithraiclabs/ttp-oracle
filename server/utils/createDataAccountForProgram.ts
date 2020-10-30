@@ -5,9 +5,9 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
-} from "@solana/web3.js";
+} from '@solana/web3.js';
 
-import DataAccount from "../models/DataAccount";
+import { REQUEST_LAYOUT } from '../models/Request';
 
 export const createDataAccountForProgram = async (
   connection: Connection,
@@ -15,10 +15,8 @@ export const createDataAccountForProgram = async (
   programId: PublicKey
 ): Promise<Account> => {
   const dataAccount = new Account();
-  const space = DataAccount.bufferLayout.span;
-  const lamps = await connection.getMinimumBalanceForRentExemption(
-    space
-  );
+  const space = REQUEST_LAYOUT.bufferLayout.span;
+  const lamps = await connection.getMinimumBalanceForRentExemption(space);
   const createAccountTX = new Transaction().add(
     SystemProgram.createAccount({
       fromPubkey: payerAccount.publicKey,
@@ -30,17 +28,12 @@ export const createDataAccountForProgram = async (
   );
   const signers = [payerAccount, dataAccount];
   try {
-    await sendAndConfirmTransaction(
-      connection,
-      createAccountTX,
-      signers,
-      {
-        skipPreflight: true,
-        commitment: "recent",
-      }
-    );
+    await sendAndConfirmTransaction(connection, createAccountTX, signers, {
+      skipPreflight: true,
+      commitment: 'recent',
+    });
   } catch (err) {
-    throw new Error('Failed to create new Oracle Data Account');
+    throw new Error(`Failed to create new Oracle Data Account ${err}`);
   }
 
   return dataAccount;

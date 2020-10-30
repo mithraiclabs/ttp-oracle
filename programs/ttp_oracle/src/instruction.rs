@@ -37,7 +37,7 @@ impl CreateRequestData {
 
     let mut data = oracle_account.try_borrow_mut_data()?;
     let serialized_request_res = bincode::serialize(&self);
-    let mut serialized_request = match (serialized_request_res) {
+    let mut serialized_request = match serialized_request_res {
       Err(_) => return Err(ProgramError::InvalidInstructionData),
       Ok(v) => v
     };

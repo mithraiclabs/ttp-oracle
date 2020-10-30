@@ -1,6 +1,7 @@
-import TestHelper, { LOCALNET_URL } from "./testHelper";
+import TestHelper, { LOCALNET_URL } from './testHelper';
 
 declare global {
+  // eslint-disable-next-line no-var
   var solanaTestHelper: TestHelper;
 }
 
@@ -11,6 +12,8 @@ beforeAll(async () => {
   await solanaTestHelper.createAccounts();
   await solanaTestHelper.deployContracts();
   if (Object.keys(solanaTestHelper.programs).length === 0) {
-    console.warn('No programs were deployed. Try building your program with `yarn build`');
+    // console.warn(
+    //   'No programs were deployed. Try building your program with `yarn build`'
+    // );
   }
 });

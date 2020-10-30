@@ -4,8 +4,8 @@ import {
   BPF_LOADER_PROGRAM_ID,
   Connection,
   PublicKey,
-} from "@solana/web3.js";
-import fs from "mz/fs";
+} from '@solana/web3.js';
+import fs from 'mz/fs';
 /**
  * This script should be run before the jest suite starts running tests on the contracts.
  *  1) establish a connection to localnet
@@ -13,7 +13,7 @@ import fs from "mz/fs";
  *  3) Deploy contracts
  *
  */
-const DIST_DIRECTORY = "./dist";
+const DIST_DIRECTORY = './dist';
 export const PROGRAM_PATHS: Record<string, string> = fs
   .readdirSync(DIST_DIRECTORY)
   .reduce((acc, fileName) => {
@@ -21,7 +21,7 @@ export const PROGRAM_PATHS: Record<string, string> = fs
     acc[fileName] = path;
     return acc;
   }, {} as Record<string, string>);
-export const LOCALNET_URL: string = "http://localhost:8899";
+export const LOCALNET_URL = 'http://localhost:8899';
 
 export const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,7 +77,7 @@ export default class TestHelper {
    * @param url
    */
   establishConnection(url: string = LOCALNET_URL) {
-    this.connection = new Connection(url, "recent");
+    this.connection = new Connection(url, 'recent');
   }
   /**
    * Creates 10 accounts for help with tests

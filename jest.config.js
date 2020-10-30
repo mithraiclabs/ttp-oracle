@@ -6,7 +6,7 @@ module.exports = {
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.ts?$',
   testTimeout: 30000,
   transform: {
-    '^.+\\.ts?$': 'ts-jest'
+    '^.+\\.ts?$': 'ts-jest',
   },
-  testEnvironment: 'node'
+  testEnvironment: 'node',
 };

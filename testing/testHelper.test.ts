@@ -1,29 +1,29 @@
-import * as semver from "semver";
+import * as semver from 'semver';
 
-import TestHelper, { LOCALNET_URL, PROGRAM_PATHS } from "./testHelper";
+import TestHelper, { LOCALNET_URL, PROGRAM_PATHS } from './testHelper';
 
-describe("With established connection", () => {
-  let testHelper = new TestHelper();
+describe('With established connection', () => {
+  const testHelper = new TestHelper();
   beforeAll(async () => {
     await testHelper.establishConnection(LOCALNET_URL);
   });
 
-  test("A valid connection should be established", async () => {
+  test('A valid connection should be established', async () => {
     expect(testHelper.connection).not.toBe(null);
     const version = await testHelper.connection.getVersion();
-    expect(semver.gte(version["solana-core"].split(" ")[0], "1.3.9")).toBe(
+    expect(semver.gte(version['solana-core'].split(' ')[0], '1.3.9')).toBe(
       true
     );
   });
 
-  test("10 accounts should be created", async () => {
+  test('10 accounts should be created', async () => {
     await testHelper.createAccounts();
     expect(Array.isArray(testHelper.accounts)).toBe(true);
     expect(testHelper.accounts.length).toBe(10);
   });
 
-  describe("deployContracts", () => {
-    test("it should deploy the hello world contract to the chain", async () => {
+  describe('deployContracts', () => {
+    test('it should deploy the hello world contract to the chain', async () => {
       jest.setTimeout(30000);
       await testHelper.deployContracts();
       expect(Object.keys(testHelper.programs).length).toEqual(
