@@ -1922,6 +1922,7 @@ version = "0.0.1"
 dependencies = [
  "arrayref",
  "bincode",
+ "generic-array 0.14.4",
  "serde",
  "serde-big-array",
  "solana-sdk",

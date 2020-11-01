@@ -88,6 +88,7 @@ impl OracleInstruction {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use generic_array::GenericArray;
   use solana_sdk::clock::Epoch;
   use std::rc::Rc;
   use std::cell::{Ref};
@@ -100,7 +101,7 @@ mod tests {
       path: *path_bytes
     };
     let params = GetParams {
-      get: *url_bytes
+      get: *GenericArray::from_slice(url_bytes)
     };
     let args = GetArgs {
       params: params

@@ -1,19 +1,19 @@
 #![cfg_attr(not(feature = "program"), allow(unused))]
+use std::fmt;
+use generic_array::typenum::U34;
+use generic_array::{ArrayLength, GenericArray};
 use serde::{ Serialize, Deserialize };
-use serde_big_array::{ big_array };
-
-// Must list additional array sizes over 32 to support here
-big_array! { BigArray; 34, 105, }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct GetParams {
-  #[serde(with = "BigArray")]
-  pub get: [u8; 34] // 34 bytes of UTF 8 encoded data "https://ftx.us/api/markets/BTC/USD" for initial PoC
+#[serde(bound = "N: ArrayLength<u8>")]
+pub struct GetParams<N: ArrayLength<u8>> {
+  pub get: GenericArray<u8, N> // 34 bytes of UTF 8 encoded data "https://ftx.us/api/markets/BTC/USD" for initial PoC
 }
+
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct GetArgs {
-  pub params: GetParams
+  pub params: GetParams<U34>
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -45,14 +45,14 @@ mod tests {
   fn test_serde_get_params() {
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let params = GetParams {
-      get: *url_bytes
+      get: *GenericArray::from_slice(url_bytes)
     };
     let serialized_params = bincode::serialize(&params).unwrap();
 
     // make sure the serialized GetParams is the same as the url_bytes
     assert_eq!(serialized_params, url_bytes);
 
-    let deserialized_params: GetParams = bincode::deserialize(&serialized_params).unwrap();
+    let deserialized_params: GetParams<U34> = bincode::deserialize(&serialized_params).unwrap();
 
     assert_eq!(deserialized_params, params);
   }
@@ -80,7 +80,7 @@ mod tests {
       path: *path_bytes
     };
     let params = GetParams {
-      get: *url_bytes
+      get: *GenericArray::from_slice(url_bytes)
     };
     let args = GetArgs {
       params: params
@@ -111,7 +111,7 @@ mod tests {
       path: *path_bytes
     };
     let params = GetParams {
-      get: *url_bytes
+      get: *GenericArray::from_slice(url_bytes)
     };
     let args = GetArgs {
       params: params
