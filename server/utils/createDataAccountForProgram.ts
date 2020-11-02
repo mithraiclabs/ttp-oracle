@@ -12,10 +12,10 @@ import { REQUEST_LAYOUT } from '../models/Request';
 export const createDataAccountForProgram = async (
   connection: Connection,
   payerAccount: Account,
-  programId: PublicKey
+  programId: PublicKey,
 ): Promise<Account> => {
   const dataAccount = new Account();
-  const space = REQUEST_LAYOUT.bufferLayout.span;
+  const space = REQUEST_LAYOUT.span;
   const lamps = await connection.getMinimumBalanceForRentExemption(space);
   const createAccountTX = new Transaction().add(
     SystemProgram.createAccount({
@@ -24,7 +24,7 @@ export const createDataAccountForProgram = async (
       lamports: lamps,
       space,
       programId,
-    })
+    }),
   );
   const signers = [payerAccount, dataAccount];
   try {

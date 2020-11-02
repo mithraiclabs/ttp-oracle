@@ -3,3 +3,4 @@ dist/
 target/
 yarn-error.log
 testDeployed.json
+*.so

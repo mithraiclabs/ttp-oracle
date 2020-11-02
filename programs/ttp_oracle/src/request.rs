@@ -1,5 +1,4 @@
-#![cfg_attr(not(feature = "program"), allow(unused))]
-use solana_sdk::{
+use solana_program::{
   program_error::ProgramError,
   program_pack::{ Pack, Sealed },
 };

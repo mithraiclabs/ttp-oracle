@@ -1,4 +1,3 @@
-import { REQUEST_LAYOUT } from '../models/Request';
 import { createDataAccountForProgram } from './createDataAccountForProgram';
 
 describe('createDataAccountForProgram', () => {

@@ -1,7 +1,4 @@
-#![cfg_attr(not(feature = "program"), allow(unused))]
-use std::mem;
-use solana_sdk::{
-  account_info::{ next_account_info, AccountInfo },
+use solana_program::{
   instruction::{ AccountMeta, Instruction },
   program_error::ProgramError,
   pubkey::Pubkey,
@@ -9,38 +6,8 @@ use solana_sdk::{
 };
 use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
 use crate::request::{
-  GetArgs,
-  GetParams,
-  JsonParseArgs,
   Request,
-  Task
 };
-
-// TODO maybe move this out since it's not coupled to instruction handling
-pub type OracleResult<T = ()> = Result<T, ProgramError>;
-
-/**
- * 
- * TODO serialize the Request from CreateRequestData and add it to the oracle data account
- * TODO allow handling more than 1 request. Current implementation simply overwrites the 
- *  entire account data buffer
- */
-pub fn process_create_request_instruction(accounts: &[AccountInfo], request: &Request) -> OracleResult {
-  let accounts_iter = &mut accounts.iter();
-  let oracle_account = next_account_info(accounts_iter)?;
-
-  let mut data = oracle_account.try_borrow_mut_data()?;
-  let mut serialized_request = [0u8; Request::LEN];
-  request.pack_into_slice(&mut serialized_request);
-
-  // create padded serialized data for buffer size matches 
-  let mut padded_serialized_request = [0 as u8; mem::size_of::<Request>()];
-  padded_serialized_request[0..serialized_request.len()].copy_from_slice(&serialized_request);
-  // overwrite account data
-  data.copy_from_slice(&padded_serialized_request);
-
-  Ok(())
-}
 
 #[repr(C, u16)]
 #[derive(Debug, PartialEq)]
@@ -56,19 +23,21 @@ pub enum OracleInstruction {
 impl Sealed for OracleInstruction {}
 impl Pack for OracleInstruction {
   const LEN: usize  = 114;
+
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, 114];
     let (tag, serialized_request) = array_refs![src, 2, 112];
     return OracleInstruction::decode(*tag, *serialized_request);
   }
-   fn pack_into_slice(&self, dst: &mut [u8]) {
-     let dst = array_mut_ref![dst, 0, 114];
-     let (
-        tag_dst,
-        data_dest,
-      ) = mut_array_refs![dst, 2, 112];
-      self.encode(tag_dst, data_dest)
-    }
+
+  fn pack_into_slice(&self, dst: &mut [u8]) {
+    let dst = array_mut_ref![dst, 0, 114];
+    let (
+      tag_dst,
+      data_dest,
+    ) = mut_array_refs![dst, 2, 112];
+    self.encode(tag_dst, data_dest)
+  }
 }
 
 impl OracleInstruction {
@@ -104,13 +73,14 @@ impl OracleInstruction {
     OracleInstruction::decode(*tag, *data)
   }
 }
-
+/// Generate the Instruction for CreateRequest.
+/// Used for clients and cross program invocation
 pub fn create_request(
   oracle_program_id: &Pubkey,
   oracle_id: &Pubkey,
   request: Request
 ) -> Result<Instruction, ProgramError> {
-  let mut accounts = vec![AccountMeta::new(*oracle_id, false)];
+  let accounts = vec![AccountMeta::new(*oracle_id, false)];
   let mut data  = [0u8; OracleInstruction::LEN];
   OracleInstruction::CreateRequest { request }.pack_into_slice(&mut data);
   let data = data.to_vec();
@@ -125,12 +95,14 @@ pub fn create_request(
 mod tests {
   use super::*;
   use generic_array::GenericArray;
-  use solana_sdk::clock::Epoch;
-  use std::rc::Rc;
-  use std::cell::{Ref};
+  use crate::request::{
+    GetArgs,
+    GetParams,
+    JsonParseArgs,
+    Task
+  };
 
   fn build_request() -> Request {
-    // TODO DRY up this set up as it duplicates set up in request.rs
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
     let json_args = JsonParseArgs {
@@ -145,9 +117,6 @@ mod tests {
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
     let uint_256_task = Task::SolUint256;
-    let httpget_tag = [0 as u8; 4];
-    let json_tag: [u8; 4] = [1, 0, 0, 0];
-    let uint256_tag: [u8; 4] = [2, 0, 0, 0];
 
     return Request {
       tasks: [get_task, json_parse_task, uint_256_task],
@@ -171,28 +140,6 @@ mod tests {
     
     let res = OracleInstruction::unpack(&instruction_data).unwrap();
     assert_eq!(res, create_req_instruction);
-  }
-
-  #[test]
-  fn test_process_create_request() {
-    let program_id = Pubkey::default();
-    let oracle_id = Pubkey::default();
-    let mut lamports = 0;
-    // account data buffer with the size of a request
-    let request = build_request();
-    let mut data_buffer = vec![1; mem::size_of::<Request>()];
-    let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
-    let accounts = vec![account];
-
-
-    let ret = process_create_request_instruction(&accounts, &request);
-    assert!(ret.is_ok());
-    
-    let account_data = accounts[0].data.borrow();
-
-    let deserialized_request: Request = Request::unpack_from_slice(&account_data).unwrap();
-
-    assert_eq!(deserialized_request, request);
   }
 
   #[test]

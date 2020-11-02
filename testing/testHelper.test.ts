@@ -1,4 +1,3 @@
-import { fs } from 'mz';
 import * as semver from 'semver';
 
 import { PROGRAM_PATHS } from './testHelper';
@@ -8,14 +7,14 @@ describe('With established connection', () => {
     expect(solanaTestHelper.connection).not.toBe(null);
     const version = await solanaTestHelper.connection.getVersion();
     expect(semver.gte(version['solana-core'].split(' ')[0], '1.3.9')).toBe(
-      true
+      true,
     );
   });
 
-  test('10 accounts should be created', async () => {
+  test('accounts should be created', async () => {
     await solanaTestHelper.createAccounts();
     expect(Array.isArray(solanaTestHelper.accounts)).toBe(true);
-    expect(solanaTestHelper.accounts.length).toBe(10);
+    expect(solanaTestHelper.accounts.length).toBeGreaterThanOrEqual(10);
   });
 
   // Skip deploying contracts since it times out often
@@ -24,7 +23,7 @@ describe('With established connection', () => {
       jest.setTimeout(30000);
       await solanaTestHelper.deployContracts();
       expect(Object.keys(solanaTestHelper.programs).length).toEqual(
-        Object.keys(PROGRAM_PATHS).length
+        Object.keys(PROGRAM_PATHS).length,
       );
       await Promise.all(
         Object.values(solanaTestHelper.programs).map(async (programId) => {
@@ -32,7 +31,7 @@ describe('With established connection', () => {
           let accountInfo;
           try {
             accountInfo = await solanaTestHelper.connection.getAccountInfo(
-              programId
+              programId,
             );
           } catch (error) {
             // swallow error
@@ -42,7 +41,7 @@ describe('With established connection', () => {
             // exists on chain
             expect(accountInfo).toBeDefined();
           }
-        })
+        }),
       );
     });
   });

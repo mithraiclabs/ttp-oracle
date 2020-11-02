@@ -41,7 +41,7 @@ export const newAccountWithLamports = async (
   options: NewAccountOptions = {
     lamports: 1000000,
     noAirdropCheck: false,
-  }
+  },
 ): Promise<Account> => {
   const account = new Account();
 
@@ -89,7 +89,8 @@ export default class TestHelper {
     let numberOfAccounts = 10;
     for (;;) {
       const account = await newAccountWithLamports(this.connection, {
-        lamports: 1000000,
+        // create accounts with a lot of lamports for testing purposes
+        lamports: 10000000000000,
         noAirdropCheck: true,
       });
       this.accounts.push(account);
@@ -106,7 +107,7 @@ export default class TestHelper {
   async loadProgram(
     pathToProgram: string,
     payerAccount: Account,
-    name: string
+    name: string,
   ): Promise<void> {
     const data = await fs.readFile(pathToProgram);
     const programAccount = new Account();
@@ -115,7 +116,7 @@ export default class TestHelper {
       payerAccount,
       programAccount,
       data,
-      BPF_LOADER_PROGRAM_ID
+      BPF_LOADER_PROGRAM_ID,
     );
     const programId = programAccount.publicKey;
     this.programs[name] = programId;
@@ -135,9 +136,9 @@ export default class TestHelper {
         await this.loadProgram(
           PROGRAM_PATHS[programName],
           payerAccount,
-          programName
+          programName,
         );
-      })
+      }),
     );
     await this.writeDeployedPrograms();
   }
@@ -145,6 +146,11 @@ export default class TestHelper {
   /**
    * Write the deployed programs to testDeployed.json
    */
-  writeDeployedPrograms = async (): Promise<void> =>
-    fs.writeFile('testDeployed.json', JSON.stringify(this.programs));
+  writeDeployedPrograms = async (): Promise<void> => {
+    const programsAsStrings = Object.keys(this.programs).reduce((acc, key) => {
+      acc[key] = this.programs[key].toString();
+      return acc;
+    }, {} as Record<string, string>);
+    return fs.writeFile('testDeployed.json', JSON.stringify(programsAsStrings));
+  };
 }

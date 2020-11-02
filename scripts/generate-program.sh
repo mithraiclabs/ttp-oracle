@@ -24,7 +24,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-no-entrypoint = []
+exclude_entrypoint = []
 program = ["solana-sdk/program"]
 default = ["solana-sdk/default"]
 

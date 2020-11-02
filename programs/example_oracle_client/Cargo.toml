@@ -1,0 +1,16 @@
+[package]
+name = "example_oracle_client"
+version = "0.1.0"
+authors = ["Mithraic Labs <mithraiclabs@gmail.com>"]
+edition = "2018"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "1.4.4"
+generic-array = { version = "0.14.4", default-features = false, features = ["serde"] }
+ttp_oracle = { path = "../ttp_oracle", features = [ "no-entrypoint" ] }
+
+[lib]
+crate-type = ["cdylib", "lib"]

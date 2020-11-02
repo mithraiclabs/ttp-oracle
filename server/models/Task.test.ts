@@ -1,13 +1,13 @@
-import { Task, TASK_LAYOUT } from './Task';
+import { Task, TASK_LAYOUT, TASK_TAG_LAYOUT } from './Task';
 
 describe('Task', () => {
   describe('HTTP_GET', () => {
-    it('should decode task', () => {
-      const url = 'https://ftx.us/api/markets/BTC/USD';
-      const urlBuffer = Buffer.from(url, 'utf8');
-      const tagBuffer = Buffer.alloc(4);
-      const taskBuffer = Buffer.concat([tagBuffer, urlBuffer]);
+    const url = 'https://ftx.us/api/markets/BTC/USD';
+    const urlBuffer = Buffer.from(url, 'utf8');
+    const tagBuffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
+    const taskBuffer = Buffer.concat([tagBuffer, urlBuffer]);
 
+    it('should decode task', () => {
       const task = TASK_LAYOUT.decode(taskBuffer);
       expect(task).toEqual({
         urlBuffer: Array.from(urlBuffer),
@@ -20,8 +20,8 @@ describe('Task', () => {
     it('should decode task', () => {
       const path = 'request.price';
       const pathBuffer = Buffer.from(path, 'utf8');
-      const tagBuffer = Buffer.alloc(4);
-      tagBuffer.writeUInt32LE(1);
+      const tagBuffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
+      tagBuffer.writeUInt16LE(1);
       const taskBuffer = Buffer.concat([tagBuffer, pathBuffer]);
 
       const task = TASK_LAYOUT.decode(taskBuffer);
@@ -34,8 +34,8 @@ describe('Task', () => {
 
   describe('SOL_UINT_256', () => {
     it('should decode task', () => {
-      const buffer = Buffer.alloc(4);
-      buffer.writeUInt32LE(2);
+      const buffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
+      buffer.writeUInt16LE(2);
 
       const task = TASK_LAYOUT.decode(buffer);
       expect(task).toEqual({
