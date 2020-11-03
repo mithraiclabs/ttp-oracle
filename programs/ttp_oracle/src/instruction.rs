@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "program"), allow(unused))]
 use std::mem;
-use std::cell::{RefCell, RefMut};
 use solana_sdk::{
   account_info::{ next_account_info, AccountInfo },
   program_error::ProgramError,

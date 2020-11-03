@@ -1,5 +1,9 @@
 #![cfg_attr(not(feature = "program"), allow(unused))]
-use std::fmt;
+use solana_sdk::{
+  program_error::ProgramError,
+  program_pack::{ Pack, Sealed },
+};
+use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use generic_array::typenum::U34;
 use generic_array::{ArrayLength, GenericArray};
 use serde::{ Serialize, Deserialize };
@@ -8,6 +12,20 @@ use serde::{ Serialize, Deserialize };
 #[serde(bound = "N: ArrayLength<u8>")]
 pub struct GetParams<N: ArrayLength<u8>> {
   pub get: GenericArray<u8, N> // 34 bytes of UTF 8 encoded data "https://ftx.us/api/markets/BTC/USD" for initial PoC
+}
+
+impl Sealed for GetParams<U34> {}
+impl Pack for GetParams<U34> {
+  const LEN: usize  = 34;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let get = src;
+    Ok(GetParams {
+        get: *GenericArray::from_slice(get),
+    })
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(self.get.as_slice());
+    }
 }
 
 
@@ -42,17 +60,19 @@ mod tests {
   use super::*;
   
   #[test]
-  fn test_serde_get_params() {
+  fn test_pack_unpack_get_params() {
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let params = GetParams {
       get: *GenericArray::from_slice(url_bytes)
     };
-    let serialized_params = bincode::serialize(&params).unwrap();
+
+    let &mut mut serialized_params = &mut [0 as u8; 34];
+    params.pack_into_slice(&mut serialized_params);
 
     // make sure the serialized GetParams is the same as the url_bytes
-    assert_eq!(serialized_params, url_bytes);
+    assert_eq!(&serialized_params, url_bytes);
 
-    let deserialized_params: GetParams<U34> = bincode::deserialize(&serialized_params).unwrap();
+    let deserialized_params: GetParams<U34> = GetParams::unpack_from_slice(&serialized_params).unwrap();
 
     assert_eq!(deserialized_params, params);
   }
