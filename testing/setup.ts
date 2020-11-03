@@ -1,19 +1,15 @@
-import TestHelper, { LOCALNET_URL } from './testHelper';
+import { fs } from 'mz';
+
+import TestHelper from './testHelper';
 
 declare global {
   // eslint-disable-next-line no-var
   var solanaTestHelper: TestHelper;
 }
 
-global.solanaTestHelper = new TestHelper();
-
+// read already deployed programs
 beforeAll(async () => {
-  solanaTestHelper.establishConnection(LOCALNET_URL);
-  await solanaTestHelper.createAccounts();
-  await solanaTestHelper.deployContracts();
-  if (Object.keys(solanaTestHelper.programs).length === 0) {
-    // console.warn(
-    //   'No programs were deployed. Try building your program with `yarn build`'
-    // );
-  }
+  const deployedJsonRaw = fs.readFileSync('./testDeployed.json');
+  const deployedJson = JSON.parse(deployedJsonRaw.toString());
+  global.solanaTestHelper = new TestHelper(deployedJson);
 });

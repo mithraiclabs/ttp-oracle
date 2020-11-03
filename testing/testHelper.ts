@@ -69,20 +69,23 @@ export default class TestHelper {
   accounts: Array<Account> = [];
   programs: Record<string, PublicKey> = {};
 
-  constructor() {
+  constructor(programs?: Record<string, PublicKey>) {
+    if (programs) {
+      this.programs = programs;
+    }
     this.establishConnection();
   }
   /**
    * establishes connection to Solana cluster
    * @param url
    */
-  establishConnection(url: string = LOCALNET_URL) {
+  establishConnection(url: string = LOCALNET_URL): void {
     this.connection = new Connection(url, 'recent');
   }
   /**
    * Creates 10 accounts for help with tests
    */
-  async createAccounts() {
+  async createAccounts(): Promise<void> {
     let numberOfAccounts = 10;
     for (;;) {
       const account = await newAccountWithLamports(this.connection, {
@@ -121,7 +124,7 @@ export default class TestHelper {
   /**
    * deploy specified contracts
    */
-  async deployContracts() {
+  async deployContracts(): Promise<void> {
     // create a new account to pay for the release
     const payerAccount = await newAccountWithLamports(this.connection, {
       lamports: 10000000000000,
@@ -136,5 +139,12 @@ export default class TestHelper {
         );
       })
     );
+    await this.writeDeployedPrograms();
   }
+
+  /**
+   * Write the deployed programs to testDeployed.json
+   */
+  writeDeployedPrograms = async (): Promise<void> =>
+    fs.writeFile('testDeployed.json', JSON.stringify(this.programs));
 }
