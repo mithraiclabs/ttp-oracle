@@ -33,10 +33,36 @@ impl Pack for GetParams<U34> {
 pub struct GetArgs {
   pub params: GetParams<U34>
 }
+impl Sealed for GetArgs {}
+impl Pack for GetArgs {
+  const LEN: usize  = 34;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let params = GetParams::unpack_from_slice(src)?;
+    Ok(GetArgs {
+        params: params
+    })
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(self.params.get.as_slice());
+    }
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct JsonParseArgs {
   pub path: [u8; 12] // 12 bytes of UTF 8 encoded data. "result.price" for initial PoC
+}
+
+impl Sealed for JsonParseArgs {}
+impl Pack for JsonParseArgs {
+  const LEN: usize  = 12;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    Ok(JsonParseArgs {
+        path: *array_ref![src, 0, 12],
+    })
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(&self.path[0..12]);
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -78,16 +104,17 @@ mod tests {
   }
 
   #[test]
-  fn test_serde_json_parse_args() {
+  fn test_pack_unpack_json_parse_args() {
     let path_bytes = b"result.price";
     let json_args = JsonParseArgs {
       path: *path_bytes
     };
-    let serialized_json_parse_args = bincode::serialize(&json_args).unwrap();
+    let &mut mut serialized_json_parse_args = &mut [0 as u8; 12];
+    json_args.pack_into_slice(&mut serialized_json_parse_args);
 
-    assert_eq!(serialized_json_parse_args, path_bytes);
+    assert_eq!(&serialized_json_parse_args, path_bytes);
 
-    let deserialized_json_parse_args: JsonParseArgs = bincode::deserialize(&serialized_json_parse_args).unwrap();
+    let deserialized_json_parse_args: JsonParseArgs = JsonParseArgs::unpack_from_slice(&serialized_json_parse_args).unwrap();
 
     assert_eq!(deserialized_json_parse_args, json_args);
   }
