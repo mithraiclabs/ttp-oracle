@@ -65,11 +65,62 @@ impl Pack for JsonParseArgs {
     }
 }
 
+#[repr(C, u16)]
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Task {
   HttpGet(GetArgs),
   JsonParse(JsonParseArgs),
   SolUint256
+}
+
+impl Task {
+  fn decode_task(kind: [u8; 2], data: [u8; 34]) -> Result<Self, ProgramError> {
+    match u16::from_le_bytes(kind) {
+      0 => Ok(Task::HttpGet(
+        GetArgs::unpack_from_slice(&data)?
+      )),
+      1 => Ok(Task::JsonParse(JsonParseArgs::unpack_from_slice(&data)?)),
+      2 => Ok(Task::SolUint256),
+      _ => Err(ProgramError::InvalidAccountData),
+    }
+  }
+
+  fn encode_task(&self, kind: &mut [u8], task_data:&mut [u8])  {
+    match self {
+      Task::HttpGet(task) => {
+        let tag: u16 = 0;
+        kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
+        task.pack_into_slice(task_data);
+      },
+      Task::JsonParse(task) => {
+        let tag: u16 = 1;
+        kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
+        task.pack_into_slice(task_data);
+      },
+      Task::SolUint256 => {
+        let tag: u16 = 2;
+        kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
+      }
+      // TODO propogate error here?
+    }
+  }
+}
+impl Sealed for Task {}
+impl Pack for Task {
+  const LEN: usize  = 36;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let src = array_ref![src, 0, 36];
+    let (kind, task) = array_refs![src, 2, 34];
+    return Task::decode_task(*kind, *task);
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+     let dst = array_mut_ref![dst, 0, 36];
+     let (
+        tag_dst,
+        task_dst,
+      ) = mut_array_refs![dst, 2, 34];
+      self.encode_task(tag_dst, task_dst)
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -120,7 +171,7 @@ mod tests {
   }
 
   #[test]
-  fn test_serde_task() {
+  fn test_pack_unpack_task() {
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
     let json_args = JsonParseArgs {
@@ -135,17 +186,19 @@ mod tests {
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
     
-    let httpget_tag = [0 as u8; 4];
-    let httpjson_tag: [u8; 4] = [1, 0, 0, 0];
-    let serialized_get_task = bincode::serialize(&get_task).unwrap();
-    let serialized_json_task = bincode::serialize(&json_parse_task).unwrap();
-    assert_eq!(serialized_get_task[0..4], httpget_tag);
-    assert_eq!(serialized_get_task[4..38], *url_bytes);
-    assert_eq!(serialized_json_task[0..4], httpjson_tag);
-    assert_eq!(serialized_json_task[4..16], *path_bytes);
+    let httpget_tag = [0 as u8; 2];
+    let httpjson_tag: [u8; 2] = [1, 0];
+    let &mut mut serialized_get_task = &mut [0 as u8; 36];
+    get_task.pack_into_slice(&mut serialized_get_task);
+    let &mut mut serialized_json_task = &mut [0 as u8; 36];
+    json_parse_task.pack_into_slice(&mut serialized_json_task);
+    assert_eq!(serialized_get_task[0..2], httpget_tag);
+    assert_eq!(serialized_get_task[2..36], *url_bytes);
+    assert_eq!(serialized_json_task[0..2], httpjson_tag);
+    assert_eq!(serialized_json_task[2..14], *path_bytes);
 
-    let deserialized_get_task: Task = bincode::deserialize(&serialized_get_task).unwrap();
-    let deserialized_json_task: Task = bincode::deserialize(&serialized_json_task).unwrap();
+    let deserialized_get_task: Task = Task::unpack_from_slice(&serialized_get_task).unwrap();
+    let deserialized_json_task: Task = Task::unpack_from_slice(&serialized_get_task).unwrap();
     assert_eq!(deserialized_get_task, get_task);
     assert_eq!(deserialized_json_task, json_parse_task);
   }
