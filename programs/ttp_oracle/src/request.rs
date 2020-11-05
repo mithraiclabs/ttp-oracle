@@ -95,7 +95,7 @@ impl Task {
       Task::JsonParse(task) => {
         let tag: u16 = 1;
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
-        task.pack_into_slice(task_data);
+        task.pack_into_slice(&mut task_data[0..12]);
       },
       Task::SolUint256 => {
         let tag: u16 = 2;
@@ -198,7 +198,7 @@ mod tests {
     assert_eq!(serialized_json_task[2..14], *path_bytes);
 
     let deserialized_get_task: Task = Task::unpack_from_slice(&serialized_get_task).unwrap();
-    let deserialized_json_task: Task = Task::unpack_from_slice(&serialized_get_task).unwrap();
+    let deserialized_json_task: Task = Task::unpack_from_slice(&serialized_json_task).unwrap();
     assert_eq!(deserialized_get_task, get_task);
     assert_eq!(deserialized_json_task, json_parse_task);
   }
