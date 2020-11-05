@@ -130,7 +130,31 @@ pub struct Request {
   pub tasks: [Task; 3], 
   pub offset: u32
 }
-
+impl Sealed for Request {}
+impl Pack for Request {
+  const LEN: usize  = 112;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let src = array_ref![src, 0, 112];
+    let (task_1, task_2, task_3, offset) = array_refs![src, 36, 36, 36, 4];
+    return Ok(Request {
+      tasks: [
+        Task::unpack_from_slice(task_1)?,
+        Task::unpack_from_slice(task_2)?,
+        Task::unpack_from_slice(task_3)?
+      ],
+      offset: u32::from_le_bytes(*offset)
+    });
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+     let dst = array_mut_ref![dst, 0, 112];
+     let (task_1, task_2, task_3, offset) =
+      mut_array_refs![dst, 36, 36, 36, 4];
+     self.tasks[0].pack_into_slice(task_1);
+     self.tasks[1].pack_into_slice(task_2);
+     self.tasks[2].pack_into_slice(task_3);
+     *offset = self.offset.to_le_bytes();
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -204,7 +228,7 @@ mod tests {
   }
 
   #[test]
-  fn test_serde_request() {
+  fn test_pack_unpack_request() {
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
     let json_args = JsonParseArgs {
@@ -219,23 +243,24 @@ mod tests {
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
     let uint_256_task = Task::SolUint256;
-    let httpget_tag = [0 as u8; 4];
-    let json_tag: [u8; 4] = [1, 0, 0, 0];
-    let uint256_tag: [u8; 4] = [2, 0, 0, 0];
+    let httpget_tag = [0 as u8; 2];
+    let json_tag: [u8; 2] = [1, 0];
+    let uint256_tag: [u8; 2] = [2, 0];
 
     let request = Request {
       tasks: [get_task, json_parse_task, uint_256_task],
       offset: 0
     };
 
-    let serialized_request = bincode::serialize(&request).unwrap();   
-    assert_eq!(serialized_request[0..4], httpget_tag);
-    assert_eq!(serialized_request[4..38], *url_bytes);
-    assert_eq!(serialized_request[38..42], json_tag);
-    assert_eq!(serialized_request[42..54], *path_bytes);
-    assert_eq!(serialized_request[54..58], uint256_tag);
+    let &mut mut serialized_request = &mut [0 as u8; 36 * 3 + 4];
+    request.pack_into_slice(&mut serialized_request);
+    assert_eq!(serialized_request[0..2], httpget_tag);
+    assert_eq!(serialized_request[2..36], *url_bytes);
+    assert_eq!(serialized_request[36..38], json_tag);
+    assert_eq!(serialized_request[38..50], *path_bytes);
+    assert_eq!(serialized_request[72..74], uint256_tag);
 
-    let deserialized_request: Request = bincode::deserialize(&serialized_request).unwrap();
+    let deserialized_request: Request = Request::unpack_from_slice(&serialized_request).unwrap();
     assert_eq!(deserialized_request, request);
   }
 }
