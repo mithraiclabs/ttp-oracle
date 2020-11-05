@@ -6,10 +6,8 @@ use solana_sdk::{
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use generic_array::typenum::U34;
 use generic_array::{ArrayLength, GenericArray};
-use serde::{ Serialize, Deserialize };
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(bound = "N: ArrayLength<u8>")]
+#[derive(Debug, PartialEq)]
 pub struct GetParams<N: ArrayLength<u8>> {
   pub get: GenericArray<u8, N> // 34 bytes of UTF 8 encoded data "https://ftx.us/api/markets/BTC/USD" for initial PoC
 }
@@ -29,7 +27,7 @@ impl Pack for GetParams<U34> {
 }
 
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct GetArgs {
   pub params: GetParams<U34>
 }
@@ -47,7 +45,7 @@ impl Pack for GetArgs {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct JsonParseArgs {
   pub path: [u8; 12] // 12 bytes of UTF 8 encoded data. "result.price" for initial PoC
 }
@@ -66,7 +64,7 @@ impl Pack for JsonParseArgs {
 }
 
 #[repr(C, u16)]
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub enum Task {
   HttpGet(GetArgs),
   JsonParse(JsonParseArgs),
@@ -123,7 +121,7 @@ impl Pack for Task {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
@@ -145,15 +143,16 @@ impl Pack for Request {
       offset: u32::from_le_bytes(*offset)
     });
   }
-   fn pack_into_slice(&self, dst: &mut [u8]) {
-     let dst = array_mut_ref![dst, 0, 112];
-     let (task_1, task_2, task_3, offset) =
-      mut_array_refs![dst, 36, 36, 36, 4];
-     self.tasks[0].pack_into_slice(task_1);
-     self.tasks[1].pack_into_slice(task_2);
-     self.tasks[2].pack_into_slice(task_3);
-     *offset = self.offset.to_le_bytes();
-    }
+
+  fn pack_into_slice(&self, dst: &mut [u8]) {
+    let dst = array_mut_ref![dst, 0, 112];
+    let (task_1, task_2, task_3, offset) =
+    mut_array_refs![dst, 36, 36, 36, 4];
+    self.tasks[0].pack_into_slice(task_1);
+    self.tasks[1].pack_into_slice(task_2);
+    self.tasks[2].pack_into_slice(task_3);
+    *offset = self.offset.to_le_bytes();
+  }
 }
 
 #[cfg(test)]

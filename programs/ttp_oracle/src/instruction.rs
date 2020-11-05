@@ -4,9 +4,9 @@ use solana_sdk::{
   account_info::{ next_account_info, AccountInfo },
   program_error::ProgramError,
   pubkey::Pubkey,
+  program_pack::{ Pack, Sealed },
 };
-use serde::{ Serialize, Deserialize };
-use arrayref::array_refs;
+use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
 use crate::request::{
   GetArgs,
   GetParams,
@@ -15,72 +15,89 @@ use crate::request::{
   Task
 };
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct CreateRequestData {
-  request: Request,
-}
-
 // TODO maybe move this out since it's not coupled to instruction handling
 pub type OracleResult<T = ()> = Result<T, ProgramError>;
 
-impl CreateRequestData {
-  /**
-   * 
-   * TODO serialize the Request from CreateRequestData and add it to the oracle data account
-   * TODO allow handling more than 1 request. Current implementation simply overwrites the 
-   *  entire account data buffer
-   */
-  pub fn process_instruction(&self, accounts: &[AccountInfo]) -> OracleResult {
-    let accounts_iter = &mut accounts.iter();
-    let oracle_account = next_account_info(accounts_iter)?;
+/**
+ * 
+ * TODO serialize the Request from CreateRequestData and add it to the oracle data account
+ * TODO allow handling more than 1 request. Current implementation simply overwrites the 
+ *  entire account data buffer
+ */
+pub fn process_create_request_instruction(accounts: &[AccountInfo], request: &Request) -> OracleResult {
+  let accounts_iter = &mut accounts.iter();
+  let oracle_account = next_account_info(accounts_iter)?;
 
-    let mut data = oracle_account.try_borrow_mut_data()?;
-    let serialized_request_res = bincode::serialize(&self);
-    let mut serialized_request = match serialized_request_res {
-      Err(_) => return Err(ProgramError::InvalidInstructionData),
-      Ok(v) => v
-    };
+  let mut data = oracle_account.try_borrow_mut_data()?;
+  let mut serialized_request = [0u8; Request::LEN];
+  request.pack_into_slice(&mut serialized_request);
 
-    // create padded serialized data for buffer size matches 
-    let mut padded_serialized_request = [0 as u8; mem::size_of::<Request>()];
-    padded_serialized_request[0..serialized_request.len()].copy_from_slice(serialized_request.as_slice());
-    // overwrite account data
-    data.copy_from_slice(&padded_serialized_request);
+  // create padded serialized data for buffer size matches 
+  let mut padded_serialized_request = [0 as u8; mem::size_of::<Request>()];
+  padded_serialized_request[0..serialized_request.len()].copy_from_slice(&serialized_request);
+  // overwrite account data
+  data.copy_from_slice(&padded_serialized_request);
 
-    Ok(())
-  }
+  Ok(())
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[repr(C, u16)]
+#[derive(Debug, PartialEq)]
 pub enum OracleInstruction {
   /**
    * 0. [writable] the oracle to create request for
    */
-  CreateRequest(CreateRequestData)
+  CreateRequest(Request)
+}
+impl Sealed for OracleInstruction {}
+impl Pack for OracleInstruction {
+  const LEN: usize  = 114;
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let src = array_ref![src, 0, 114];
+    let (tag, serialized_request) = array_refs![src, 2, 112];
+    return OracleInstruction::decode(*tag, *serialized_request);
+  }
+   fn pack_into_slice(&self, dst: &mut [u8]) {
+     let dst = array_mut_ref![dst, 0, 114];
+     let (
+        tag_dst,
+        data_dest,
+      ) = mut_array_refs![dst, 2, 112];
+      self.encode(tag_dst, data_dest)
+    }
 }
 
 impl OracleInstruction {
 
-  pub fn unpack(instruction_data: &[u8]) -> Option<Self> {
-    // Missing the u32 that determines the insutrction data
-    if instruction_data.len() < 4 {
-      return None;
+  fn decode(tag: [u8; 2], data: [u8; 112]) -> Result<Self, ProgramError> {
+    match u16::from_le_bytes(tag) {
+      0 => Ok(OracleInstruction::CreateRequest(
+        Request::unpack_from_slice(&data)?
+      )),
+      _ => Err(ProgramError::InvalidInstructionData),
     }
+  }
 
-    let (&enum_bytes , data) = array_refs![instruction_data, 4; ..;];
-    // extract the Instruction identifier
-    let enum_idx = u32::from_le_bytes(enum_bytes);
-  
-    Some(match enum_idx {
-      // TODO need to add methods to serialize and deserialize the request_data to Request
-      0 =>  OracleInstruction::CreateRequest({
-        let deserialized_request: Request = bincode::deserialize(&data).unwrap();
-        CreateRequestData {
-          request: deserialized_request
-        }
-      }),
-      _ => return None,
-    })
+  fn encode(&self, kind: &mut [u8], data:&mut [u8])  {
+    match self {
+      OracleInstruction::CreateRequest(request) => {
+        let tag: u16 = 0;
+        kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
+        request.pack_into_slice(data);
+      },
+      // TODO propogate error here?
+    }
+  }
+
+  pub fn unpack(instruction_data: &[u8]) -> Result<Self, ProgramError> {
+    // Missing the u32 that determines the insutrction data
+    if instruction_data.len() < 2 {
+      return Err(ProgramError::InvalidInstructionData);
+    }
+    let instruction_data = array_ref![instruction_data, 0, 114];
+
+    let (tag, data) = array_refs![instruction_data, 2, 112];
+    OracleInstruction::decode(*tag, *data)
   }
 }
 
@@ -92,7 +109,7 @@ mod tests {
   use std::rc::Rc;
   use std::cell::{Ref};
 
-  fn build_create_request() -> CreateRequestData {
+  fn build_request() -> Request {
     // TODO DRY up this set up as it duplicates set up in request.rs
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
@@ -112,41 +129,25 @@ mod tests {
     let json_tag: [u8; 4] = [1, 0, 0, 0];
     let uint256_tag: [u8; 4] = [2, 0, 0, 0];
 
-    let req = Request {
+    return Request {
       tasks: [get_task, json_parse_task, uint_256_task],
       offset: 0
-    };
-
-    return CreateRequestData {
-      request: req,
     };
   }
 
   #[test]
   fn test_unpack_bad_data_length() {
-    let instruction_data: &[u8; 3] = &[1, 3, 4];
+    let instruction_data: &[u8; 1] = &[1];
     let res = OracleInstruction::unpack(instruction_data);
-    assert!(res.is_none());
-  }
-  #[test]
-  fn test_serde_create_request() {
-    let key_arr = [0 as u8; 32];
-    let create_req = build_create_request();
-
-    let serialized_create_req = bincode::serialize(&create_req).unwrap();
-    let deserialized_request: Request = bincode::deserialize(&serialized_create_req).unwrap();
-    assert_eq!(deserialized_request, create_req.request);
-
-    let deserialized_create_req: CreateRequestData = bincode::deserialize(&serialized_create_req).unwrap();
-    assert_eq!(deserialized_create_req, create_req);
+    assert_eq!(res, Err(ProgramError::InvalidInstructionData));
   }
 
   #[test]
   fn test_create_request_instruction() {
-    let key_arr = [0 as u8; 32];
-    let create_req = build_create_request();
-    let create_req_instruction = OracleInstruction::CreateRequest(create_req);
-    let instruction_data = bincode::serialize(&create_req_instruction).unwrap();
+    let request = build_request();
+    let create_req_instruction = OracleInstruction::CreateRequest(request);
+    let mut instruction_data = [0u8; OracleInstruction::LEN + 4];
+    create_req_instruction.pack_into_slice(&mut instruction_data);
     
     let res = OracleInstruction::unpack(&instruction_data).unwrap();
     assert_eq!(res, create_req_instruction);
@@ -158,19 +159,19 @@ mod tests {
     let oracle_id = Pubkey::default();
     let mut lamports = 0;
     // account data buffer with the size of a request
-    let create_req = build_create_request();
+    let request = build_request();
     let mut data_buffer = vec![1; mem::size_of::<Request>()];
     let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
     let accounts = vec![account];
 
 
-    let ret = create_req.process_instruction(&accounts);
+    let ret = process_create_request_instruction(&accounts, &request);
     assert!(ret.is_ok());
     
     let account_data = accounts[0].data.borrow();
 
-    let deserialized_request: Request = bincode::deserialize(&account_data).unwrap();
+    let deserialized_request: Request = Request::unpack_from_slice(&account_data).unwrap();
 
-    assert_eq!(deserialized_request, create_req.request);
+    assert_eq!(deserialized_request, request);
   }
 }
