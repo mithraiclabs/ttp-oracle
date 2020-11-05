@@ -2,6 +2,7 @@
 use std::mem;
 use solana_sdk::{
   account_info::{ next_account_info, AccountInfo },
+  instruction::{ AccountMeta, Instruction },
   program_error::ProgramError,
   pubkey::Pubkey,
   program_pack::{ Pack, Sealed },
@@ -47,7 +48,10 @@ pub enum OracleInstruction {
   /**
    * 0. [writable] the oracle to create request for
    */
-  CreateRequest(Request)
+  CreateRequest {
+    // The request to be made by the oracle
+    request: Request
+  }
 }
 impl Sealed for OracleInstruction {}
 impl Pack for OracleInstruction {
@@ -71,16 +75,16 @@ impl OracleInstruction {
 
   fn decode(tag: [u8; 2], data: [u8; 112]) -> Result<Self, ProgramError> {
     match u16::from_le_bytes(tag) {
-      0 => Ok(OracleInstruction::CreateRequest(
-        Request::unpack_from_slice(&data)?
-      )),
+      0 => Ok(OracleInstruction::CreateRequest {
+        request: Request::unpack_from_slice(&data)?
+      }),
       _ => Err(ProgramError::InvalidInstructionData),
     }
   }
 
   fn encode(&self, kind: &mut [u8], data:&mut [u8])  {
     match self {
-      OracleInstruction::CreateRequest(request) => {
+      OracleInstruction::CreateRequest { request } => {
         let tag: u16 = 0;
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
         request.pack_into_slice(data);
@@ -99,6 +103,22 @@ impl OracleInstruction {
     let (tag, data) = array_refs![instruction_data, 2, 112];
     OracleInstruction::decode(*tag, *data)
   }
+}
+
+pub fn create_request(
+  oracle_program_id: &Pubkey,
+  oracle_id: &Pubkey,
+  request: Request
+) -> Result<Instruction, ProgramError> {
+  let mut accounts = vec![AccountMeta::new(*oracle_id, false)];
+  let mut data  = [0u8; OracleInstruction::LEN];
+  OracleInstruction::CreateRequest { request }.pack_into_slice(&mut data);
+  let data = data.to_vec();
+  Ok(Instruction {
+    program_id: *oracle_program_id,
+    accounts,
+    data,
+  })
 }
 
 #[cfg(test)]
@@ -145,7 +165,7 @@ mod tests {
   #[test]
   fn test_create_request_instruction() {
     let request = build_request();
-    let create_req_instruction = OracleInstruction::CreateRequest(request);
+    let create_req_instruction = OracleInstruction::CreateRequest {request };
     let mut instruction_data = [0u8; OracleInstruction::LEN + 4];
     create_req_instruction.pack_into_slice(&mut instruction_data);
     
@@ -173,5 +193,26 @@ mod tests {
     let deserialized_request: Request = Request::unpack_from_slice(&account_data).unwrap();
 
     assert_eq!(deserialized_request, request);
+  }
+
+  #[test]
+  fn test_create_request() {
+    let oracle_program_id = Pubkey::default();
+    let oracle_id = Pubkey::default();
+    let request = build_request();
+    let account = AccountMeta::new(oracle_id, false);
+    let accounts = vec![account];
+    let mut data  = [0u8; OracleInstruction::LEN];
+    OracleInstruction::CreateRequest { request }.pack_into_slice(&mut data);
+    let data = data.to_vec();
+    let instruction = Instruction {
+      program_id: oracle_program_id,
+      accounts,
+      data
+    };
+
+    let external_request = build_request();
+    let ret = create_request(&oracle_program_id, &oracle_id, external_request).unwrap();
+    assert_eq!(ret, instruction);
   }
 }

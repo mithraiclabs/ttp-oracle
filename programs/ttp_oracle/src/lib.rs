@@ -26,7 +26,7 @@ fn process_instruction(
 
   let oracle_instruction = instruction::OracleInstruction::unpack(instruction_data)?;
   match oracle_instruction {
-    instruction::OracleInstruction::CreateRequest(request) => instruction::process_create_request_instruction(accounts, &request),
+    instruction::OracleInstruction::CreateRequest { request } => instruction::process_create_request_instruction(accounts, &request),
     _ => return Err(ProgramError::InvalidArgument),
   };
   Ok(())
