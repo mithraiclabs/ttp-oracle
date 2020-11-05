@@ -24,9 +24,9 @@ fn process_instruction(
     instruction_data: &[u8],
 ) -> ProgramResult {
 
-  let oracle_instruction = instruction::OracleInstruction::unpack(instruction_data).ok_or(ProgramError::InvalidArgument)?;
+  let oracle_instruction = instruction::OracleInstruction::unpack(instruction_data)?;
   match oracle_instruction {
-    instruction::OracleInstruction::CreateRequest(create_request_data) => create_request_data.process_instruction(accounts),
+    instruction::OracleInstruction::CreateRequest(request) => instruction::process_create_request_instruction(accounts, &request),
     _ => return Err(ProgramError::InvalidArgument),
   };
   Ok(())

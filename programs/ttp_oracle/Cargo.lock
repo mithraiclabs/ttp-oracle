@@ -1328,16 +1328,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52309f7932ab258e58bcf73cc89037e307ffef3bcfb7ce7a246580c26f81dc55"
-dependencies = [
- "serde",
- "serde_derive",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1921,10 +1911,7 @@ name = "ttp_oracle"
 version = "0.0.1"
 dependencies = [
  "arrayref",
- "bincode",
  "generic-array 0.14.4",
- "serde",
- "serde-big-array",
  "solana-sdk",
 ]
 
