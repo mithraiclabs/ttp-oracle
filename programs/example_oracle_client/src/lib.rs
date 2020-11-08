@@ -30,7 +30,7 @@ fn process_instruction(
     let oracle_program_account = next_account_info(accounts_iter)?;
     let oracle_account = next_account_info(accounts_iter)?;
     
-    let request = create_example_request();
+    let request = create_example_request(_program_id);
     
     let ix = create_request(
         oracle_program_account.key, 
@@ -41,7 +41,7 @@ fn process_instruction(
     invoke(&ix, &[oracle_program_account.clone(), oracle_account.clone()])
 }
 
-fn create_example_request() -> Request {
+fn create_example_request(_program_id: &Pubkey) -> Request {
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
     let json_args = JsonParseArgs {
@@ -59,7 +59,7 @@ fn create_example_request() -> Request {
 
     return Request {
       tasks: [get_task, json_parse_task, uint_256_task],
-      offset: 0
+      call_back_program: *_program_id
     };
 }
 
@@ -137,7 +137,7 @@ mod tests {
       let ret = process_instruction(&TTP_ORACLE_PROGRAM_ID, &accounts, &[]);
       assert!(ret.is_ok());
       
-      let request = create_example_request();
+      let request = create_example_request(&Pubkey::new_unique());
       let mut expected_request = vec![0; Request::LEN];
       request.pack_into_slice(&mut expected_request);
 

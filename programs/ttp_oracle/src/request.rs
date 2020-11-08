@@ -1,4 +1,5 @@
 use solana_program::{
+  pubkey::Pubkey,
   program_error::ProgramError,
   program_pack::{ Pack, Sealed },
 };
@@ -125,32 +126,34 @@ pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
   pub tasks: [Task; 3], 
-  pub offset: u32
+  pub call_back_program: Pubkey,
 }
 impl Sealed for Request {}
 impl Pack for Request {
-  const LEN: usize  = 112;
+  const LEN: usize  = 140;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 112];
-    let (task_1, task_2, task_3, offset) = array_refs![src, 36, 36, 36, 4];
+    let src = array_ref![src, 0, Request::LEN];
+    let (task_1, task_2, task_3, program_id_bytes) = 
+      array_refs![src, Task::LEN, Task::LEN, Task::LEN, 32];
+    let call_back_program = Pubkey::new(program_id_bytes);
     return Ok(Request {
       tasks: [
         Task::unpack_from_slice(task_1)?,
         Task::unpack_from_slice(task_2)?,
         Task::unpack_from_slice(task_3)?
       ],
-      offset: u32::from_le_bytes(*offset)
+      call_back_program: call_back_program
     });
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 112];
-    let (task_1, task_2, task_3, offset) =
-    mut_array_refs![dst, 36, 36, 36, 4];
+    let dst = array_mut_ref![dst, 0, Request::LEN];
+    let (task_1, task_2, task_3, call_back_program) =
+    mut_array_refs![dst, Task::LEN, Task::LEN, Task::LEN, 32];
     self.tasks[0].pack_into_slice(task_1);
     self.tasks[1].pack_into_slice(task_2);
     self.tasks[2].pack_into_slice(task_3);
-    *offset = self.offset.to_le_bytes();
+    *call_back_program = self.call_back_program.to_bytes()
   }
 }
 
@@ -247,10 +250,10 @@ mod tests {
 
     let request = Request {
       tasks: [get_task, json_parse_task, uint_256_task],
-      offset: 0
+      call_back_program: Pubkey::new_unique(),
     };
 
-    let &mut mut serialized_request = &mut [0 as u8; 36 * 3 + 4];
+    let &mut mut serialized_request = &mut [0 as u8; Task::LEN * 3 + 32];
     request.pack_into_slice(&mut serialized_request);
     assert_eq!(serialized_request[0..2], httpget_tag);
     assert_eq!(serialized_request[2..36], *url_bytes);

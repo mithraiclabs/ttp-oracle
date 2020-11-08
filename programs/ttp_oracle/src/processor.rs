@@ -79,7 +79,7 @@ mod tests {
 
     return Request {
       tasks: [get_task, json_parse_task, uint_256_task],
-      offset: 0
+      call_back_program: Pubkey::new_unique()
     };
   }
 
