@@ -18,7 +18,8 @@ pub enum OracleInstruction {
   CreateRequest {
     // The request to be made by the oracle
     request: Request
-  }
+  },
+  
 }
 impl Sealed for OracleInstruction {}
 impl Pack for OracleInstruction {

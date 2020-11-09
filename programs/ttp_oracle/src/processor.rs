@@ -99,4 +99,19 @@ mod tests {
 
     assert_eq!(deserialized_request, request);
   }
+
+  // #[test]
+  // fn test_process_handle_response() {
+  //   let program_id = Pubkey::default();
+  //   let oracle_id = Pubkey::default();
+  //   let mut lamports = 0;
+  //   // account data buffer with the size of a request
+  //   let request = build_request();
+  //   let mut data_buffer = vec![1; Request::LEN];
+  //   request.pack_into_slice(&data_buffer);
+  //   let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
+  //   let accounts = vec![account];
+  //   // TODO it should clear the account data
+  //   // TODO it should call a X function invocation
+  // }
 }
