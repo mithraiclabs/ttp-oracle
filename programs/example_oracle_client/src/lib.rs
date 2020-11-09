@@ -134,10 +134,9 @@ mod tests {
       let oracle_program_account = AccountInfo::new(&TTP_ORACLE_PROGRAM_ID, false, false, &mut lamports2, &mut [], &oracle_program_owner, true, Epoch::default());
       let accounts = vec![oracle_program_account, oracle_account];
       
-      let ret = process_instruction(&TTP_ORACLE_PROGRAM_ID, &accounts, &[]);
+      let ret = process_instruction(&CLIENT_PROGRAM_ID, &accounts, &[]);
       assert!(ret.is_ok());
-      
-      let request = create_example_request(&Pubkey::new_unique());
+      let request = create_example_request(&CLIENT_PROGRAM_ID);
       let mut expected_request = vec![0; Request::LEN];
       request.pack_into_slice(&mut expected_request);
 
