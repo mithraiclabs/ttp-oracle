@@ -38,14 +38,14 @@ export const sendTransactionToCreateRequest = async (
   oracleProgramId: PublicKey,
   oracleId: PublicKey,
 ): Promise<string> => {
-  // must generate a program address in order to use invoke_signed
   const createRequestTxInstruction = new TransactionInstruction({
     keys: [
       { pubkey: oracleProgramId, isSigner: false, isWritable: false },
       { pubkey: oracleId, isSigner: false, isWritable: true },
     ],
     programId,
-    data: Buffer.alloc(0),
+    // creating request is a u8 of 0
+    data: Buffer.alloc(1),
   });
 
   return await sendAndConfirmTransaction(

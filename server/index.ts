@@ -4,7 +4,13 @@
  */
 
 import { Account, Connection, PublicKey } from '@solana/web3.js';
-import { createDataAccountForProgram } from './utils';
+
+import {
+  cluster,
+  ClusterEnv,
+  createDataAccountForProgram,
+  createHandleAccountChange,
+} from './utils';
 
 class MissingENVVarError extends Error {
   constructor(envVar: string) {
@@ -13,38 +19,46 @@ class MissingENVVarError extends Error {
 }
 
 const main = async () => {
-  if (!process.env.WALLET_PRIVATE_KEY) {
-    throw new MissingENVVarError('WALLET_PRIVATE_KEY');
+  if (!process.env.SOLANA_PRIVATE_KEY) {
+    throw new MissingENVVarError('SOLANA_PRIVATE_KEY');
   }
   if (!process.env.ORACLE_PROGRAM_ID) {
     throw new MissingENVVarError('ORACLE_PROGRAM_ID');
   }
-  if (!process.env.SOLANA_URL) {
-    throw new MissingENVVarError('SOLANA_URL');
-  }
 
-  const connection = new Connection(process.env.SOLANA_URL);
-  const payerAccount = new Account(
-    Buffer.from(process.env.WALLET_PRIVATE_KEY, 'utf-8')
-  );
+  const environment = (process.env.SOLANA_ENV as ClusterEnv) ?? ClusterEnv.dev;
+  const connection = new Connection(cluster.rest[environment]);
+  const privKeyArray = JSON.parse(process.env.SOLANA_PRIVATE_KEY);
+  const payerAccount = new Account(Buffer.from(privKeyArray));
   const programId = new PublicKey(process.env.ORACLE_PROGRAM_ID);
 
-  let dataAccount;
-  if (!process.env.DATA_ACCOUNT_ADDRESS) {
-    dataAccount = await createDataAccountForProgram(
+  let oracleId: PublicKey;
+  if (!process.env.ORACLE_ID) {
+    const oracleAccount = await createDataAccountForProgram(
       connection,
       payerAccount,
-      programId
+      programId,
     );
-    console.log(
-      'Generated data account at address ',
-      dataAccount.publicKey.toBase58()
-    );
+    oracleId = oracleAccount.publicKey;
+    console.log('Generated data account at address ', oracleId.toString());
   } else {
-    dataAccount = new Account(
-      Buffer.from(process.env.DATA_ACCOUNT_ADDRESS, 'utf-8')
-    );
+    oracleId = new PublicKey(process.env.ORACLE_ID);
   }
+
+  const ws = new Connection(cluster.socket[environment]);
+
+  console.log(`listening to Oracle: ${oracleId.toString()}...`);
+
+  ws.onAccountChange(
+    oracleId,
+    createHandleAccountChange(connection, payerAccount, programId, oracleId),
+  );
+
+  // start listening to account changes
+  // on open check request queue for requests, subscribe to account changes
+
+  // TODO check request queue for requests that need to be handled
+  // TODO ignore account data changes when there is no new request
 };
 
 main();

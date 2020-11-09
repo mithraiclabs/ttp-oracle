@@ -1,4 +1,4 @@
-use crate::PUBLIC_KEY_LEN;
+use crate::{ PUBLIC_KEY_LEN };
 use solana_program::{
   pubkey::Pubkey,
   program_error::ProgramError,

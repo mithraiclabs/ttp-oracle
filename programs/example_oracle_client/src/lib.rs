@@ -24,14 +24,15 @@ fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-  let instruction_data = array_ref![instruction_data, 0, 17];
-  let (tag, instruction_data) = array_refs![instruction_data, 1, 16];
+  let tag = array_ref![instruction_data, 0, 1];
   match u8::from_le_bytes(*tag) {
     0 => {
-      processor::process_add_request(program_id, accounts, &instruction_data[0..])
+      processor::process_add_request(program_id, accounts, &[])
     },
     CALL_BACK_DETERMINANT => {
-      processor::process_handle_response(program_id, accounts, &instruction_data[0..])
+      let instruction_data = array_ref![instruction_data, 0, 17];
+      let (tag, input) = array_refs![instruction_data, 1, 16];
+      processor::process_handle_response(program_id, accounts, &input[0..])
     },
     _ => Err(ProgramError::InvalidInstructionData),
   }

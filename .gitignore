@@ -4,3 +4,4 @@ target/
 yarn-error.log
 testDeployed.json
 *.so
+testKey.json

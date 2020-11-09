@@ -19,14 +19,13 @@ pub const CALL_BACK_DETERMINANT: u8 = 255;
 
 pub struct Processor {}
 impl Processor {
-
-  // process instructions
+  /// process instructions
   pub fn process(_program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
     let instruction = OracleInstruction::unpack(input)?;
 
     match instruction {
       OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request),
-      OracleInstruction::HandleResponse(response) => Ok(())
+      OracleInstruction::HandleResponse(response) => Self::process_handle_response(accounts, &response),
     }
   }
 
@@ -42,7 +41,7 @@ impl Processor {
     let mut data = oracle_account.try_borrow_mut_data()?;
     let mut serialized_request = [0u8; Request::LEN];
     request.pack_into_slice(&mut serialized_request);
-
+    
     let dst = array_mut_ref![data, 0, Request::LEN];
     // overwrite account data
     dst.copy_from_slice(&serialized_request);
@@ -69,8 +68,8 @@ impl Processor {
       accounts,
       data: data.to_vec()
     };
-    invoke(&ix, &[client_program_account.clone()]);
-    Ok(())
+
+    invoke(&ix, &[client_program_account.clone()])
   }
 }
 

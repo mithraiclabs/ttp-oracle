@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
-    "outDir": "dist"
+    "outDir": "dist",
+    "noEmit": false
   },
   "extends": "../tsconfig.json",
-  "exclude": ["node_modules", "./*.test.*"]
+  "exclude": ["node_modules", "./**/*.test.*"],
+  "include": ["./"]
 }

@@ -1,56 +1,29 @@
 import { REQUEST_LAYOUT } from './Request';
-import { TASK_LAYOUT, TASK_TAG_LAYOUT } from './Task';
+import { Task, TaskVariantKeys } from './Task';
+import {
+  mockCallerProgramIdBuffer,
+  mockUrlBuffer,
+  mockPathBuffer,
+  mockRequestBuffer,
+} from '../../testing/mockData';
 
 describe('Request', () => {
   it('should decode 0 padded tasks request', () => {
-    const url = 'https://ftx.us/api/markets/BTC/USD';
-    const path = 'request.price';
-    const getTagBuffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
-    const jsonTagBuffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
-    const uint256Tagbuffer = Buffer.alloc(TASK_TAG_LAYOUT.span);
-    const httpGetTaskBuffer = Buffer.alloc(
-      TASK_LAYOUT.span - TASK_TAG_LAYOUT.span,
-    );
-    const jsonParseTaskBuffer = Buffer.alloc(
-      TASK_LAYOUT.span - TASK_TAG_LAYOUT.span,
-    );
-    const uint256TaskBuffer = Buffer.alloc(
-      TASK_LAYOUT.span - TASK_TAG_LAYOUT.span,
-    );
-    jsonTagBuffer.writeUInt16LE(1);
-    uint256Tagbuffer.writeUInt16LE(2);
-    const urlBuffer = Buffer.from(url, 'utf8');
-    urlBuffer.copy(httpGetTaskBuffer);
-    const pathBuffer = Buffer.from(path, 'utf8');
-    pathBuffer.copy(jsonParseTaskBuffer);
-    const offsetBuffer = Buffer.alloc(4);
-    offsetBuffer.writeUInt32LE(5);
-
-    const requestBuffer = Buffer.concat([
-      getTagBuffer,
-      httpGetTaskBuffer,
-      jsonTagBuffer,
-      jsonParseTaskBuffer,
-      uint256Tagbuffer,
-      uint256TaskBuffer,
-      offsetBuffer,
-    ]);
-
-    const request = REQUEST_LAYOUT.decode(requestBuffer);
+    const request = REQUEST_LAYOUT.decode(mockRequestBuffer);
 
     expect(request).toEqual({
       tasks: [
         {
-          urlBuffer: Array.from(urlBuffer),
+          [TaskVariantKeys[Task.HTTP_GET]]: Array.from(mockUrlBuffer),
         },
         {
-          pathBuffer: Array.from(pathBuffer),
+          [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
         },
         {
-          solUint256: true,
+          [TaskVariantKeys[Task.UINT_128]]: true,
         },
       ],
-      offset: 5,
+      callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
     });
   });
 });

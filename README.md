@@ -33,7 +33,8 @@ yarn test:programs [PROGRAM_NAME]
 yarn generate-program PROGRAM_NAME
 ```
 
-
-## TODO
-- better set up testing to add fresh accounts and other utilities for each test module at a more global level
-- create this into a package with a cli
+### Run Oracle server in dev environment
+This will export all necessary environment variables, build, and run the oracle server.
+```
+yarn setup-server
+```
