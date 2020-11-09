@@ -1,6 +1,7 @@
 use crate::{
   instruction::{ OracleInstruction },
   request::Request,
+  response::Response,
 };
 use solana_program::{
   account_info::{ next_account_info, AccountInfo },
@@ -8,7 +9,7 @@ use solana_program::{
   program_pack::Pack,
   pubkey::Pubkey
 };
-use arrayref::array_mut_ref;
+use arrayref::{ array_ref, array_mut_ref };
 
 pub struct Processor {}
 impl Processor {
@@ -40,6 +41,10 @@ impl Processor {
     // overwrite account data
     dst.copy_from_slice(&serialized_request);
 
+    Ok(())
+  }
+
+  pub fn process_handle_response(accounts: &[AccountInfo], response: &Response) -> ProgramResult {
     Ok(())
   }
 }
@@ -101,18 +106,30 @@ mod tests {
     assert_eq!(deserialized_request, request);
   }
 
-  // #[test]
-  // fn test_process_handle_response() {
-  //   let program_id = Pubkey::default();
-  //   let oracle_id = Pubkey::default();
-  //   let mut lamports = 0;
-  //   // account data buffer with the size of a request
-  //   let request = build_request();
-  //   let mut data_buffer = vec![1; Request::LEN];
-  //   request.pack_into_slice(&data_buffer);
-  //   let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
-  //   let accounts = vec![account];
-  //   // TODO it should clear the account data
-  //   // TODO it should call a X function invocation
-  // }
+  #[test]
+  fn test_process_handle_response() {
+    let program_id = Pubkey::default();
+    let oracle_id = Pubkey::default();
+    let mut lamports = 0;
+    // account data buffer with the size of a request
+    let request = build_request();
+    let mut data_buffer = [1u8; Request::LEN];
+    request.pack_into_slice(&mut data_buffer);
+    let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
+    let accounts = vec![account];
+
+    let response_val: u128 = 15439;
+    let response = Response {
+      data: response_val.to_le_bytes()
+    };
+    let ret = Processor::process_handle_response(&accounts, &response);
+    assert!(ret.is_ok());
+
+    // it should clear the account data
+    let account_data = accounts[0].data.borrow();
+    let account_data_slice = array_ref![account_data, 0, Request::LEN];
+    assert_eq!(account_data_slice, &[0u8; Request::LEN]);
+
+    // TODO it should call a X function invocation
+  }
 }
