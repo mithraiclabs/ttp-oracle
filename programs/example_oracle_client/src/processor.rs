@@ -1,15 +1,31 @@
+use std::format;
 use solana_program::{
     account_info::{ next_account_info, AccountInfo, },
     program::invoke,
     entrypoint::ProgramResult,
     program_pack::Pack,
     pubkey::Pubkey,
+    info
 };
 use solana_bpf_ttp_oracle::{
     instruction::create_request,
     request::{ GetArgs, GetParams, JsonParseArgs, Request, Task }
 };
 use generic_array::GenericArray;
+use arrayref::{ array_ref, array_refs };
+
+pub fn process_handle_response(
+  _program_id: &Pubkey,
+  accounts: &[AccountInfo],
+  _instruction_data: &[u8],
+) -> ProgramResult {
+  let res_data = array_ref![_instruction_data, 0, 16];
+  // read the data sent back (le u256)
+  let price = u128::from_le_bytes(*res_data);
+  // Log the response
+  info!(&format!("Oracle price response = {}", price));
+  Ok(())
+}
 
 pub fn process_add_request(
   _program_id: &Pubkey,

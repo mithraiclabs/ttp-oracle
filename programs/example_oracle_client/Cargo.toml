@@ -10,6 +10,7 @@ no-entrypoint = []
 [dependencies]
 solana-program = "1.4.4"
 generic-array = { version = "0.14.4", default-features = false, features = ["serde"] }
+arrayref = "0.3.6"
 ttp_oracle = { path = "../ttp_oracle", features = [ "no-entrypoint" ] }
 
 [lib]

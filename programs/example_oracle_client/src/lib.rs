@@ -2,8 +2,10 @@ use solana_program::{
     account_info::AccountInfo,
     entrypoint,
     entrypoint::ProgramResult,
+    program_error::ProgramError,
     pubkey::Pubkey,
 };
+use arrayref::{ array_ref, array_refs };
 
 pub mod processor;
 
@@ -21,5 +23,15 @@ fn process_instruction(
     accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> ProgramResult {
-  processor::process_add_request(_program_id, accounts, _instruction_data)
+  let instruction_data = array_ref![_instruction_data, 0, 17];
+  let (tag, instruction_data) = array_refs![instruction_data, 1, 16];
+  match u8::from_le_bytes(*tag) {
+    0 => {
+      processor::process_add_request(_program_id, accounts, &instruction_data[0..])
+    },
+    1 => {
+      processor::process_handle_response(_program_id, accounts, &instruction_data[0..])
+    },
+    _ => Err(ProgramError::InvalidInstructionData),
+  }
 }

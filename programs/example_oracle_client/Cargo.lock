@@ -142,6 +142,7 @@ dependencies = [
 name = "example_oracle_client"
 version = "0.1.0"
 dependencies = [
+ "arrayref",
  "generic-array 0.14.4",
  "solana-program",
  "ttp_oracle",
