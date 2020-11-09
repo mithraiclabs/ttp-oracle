@@ -5,7 +5,6 @@ use crate::{
 use solana_program::{
   account_info::{ next_account_info, AccountInfo },
   entrypoint::ProgramResult,
-  program_error::ProgramError,
   program_pack::Pack,
   pubkey::Pubkey
 };
@@ -19,8 +18,7 @@ impl Processor {
     let instruction = OracleInstruction::unpack(input)?;
 
     match instruction {
-      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request),
-      _ => Err(ProgramError::InvalidArgument)
+      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request)
     }
   }
 
@@ -73,9 +71,6 @@ mod tests {
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
     let uint_256_task = Task::SolUint256;
-    let httpget_tag = [0 as u8; 4];
-    let json_tag: [u8; 4] = [1, 0, 0, 0];
-    let uint256_tag: [u8; 4] = [2, 0, 0, 0];
 
     return Request {
       tasks: [get_task, json_parse_task, uint_256_task],
