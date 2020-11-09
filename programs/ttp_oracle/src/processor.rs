@@ -53,13 +53,47 @@ impl Processor {
 mod tests {
   use super::*;
   use generic_array::GenericArray;
-  use solana_program::clock::Epoch;
+  use solana_program::{
+    clock::Epoch,
+    program_stubs
+  };
   use crate::request::{
     GetArgs,
     GetParams,
     JsonParseArgs,
     Task
   };
+
+  // test program id for ttp-oralce program
+  const TTP_ORACLE_PROGRAM_ID: Pubkey = Pubkey::new_from_array([1u8; 32]);
+  // test program id for the client program that consumes ttp-oracle
+  const CLIENT_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; 32]);
+
+  // stub the cross program invocation.
+  // This was mainly ripped from solana-program-library repo in stake-pool
+  struct TestSyscallStubs {}
+  impl program_stubs::SyscallStubs for TestSyscallStubs {
+      fn sol_invoke_signed(
+          &self,
+          instruction: &Instruction,
+          account_infos: &[AccountInfo],
+          _signers_seeds: &[&[&[u8]]],
+      ) -> ProgramResult {
+
+          let mut new_account_infos = vec![];
+          for account_info in account_infos.iter() {
+            if *account_info.key != CLIENT_PROGRAM_ID {
+              new_account_infos.push(account_info.clone())
+            }
+          }
+
+          match instruction.program_id {
+              TTP_ORACLE_PROGRAM_ID => Ok(()), 
+              CLIENT_PROGRAM_ID => invoke_client(&new_account_infos, &instruction.data),
+              _ => Err(ProgramError::IncorrectProgramId)
+          }
+      }
+  }
 
   fn build_request() -> Request {
     // TODO DRY up this set up as it duplicates set up in request.rs
@@ -131,5 +165,6 @@ mod tests {
     assert_eq!(account_data_slice, &[0u8; Request::LEN]);
 
     // TODO it should call a X function invocation
+    
   }
 }
