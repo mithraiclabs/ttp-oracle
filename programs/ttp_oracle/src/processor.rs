@@ -18,7 +18,8 @@ impl Processor {
     let instruction = OracleInstruction::unpack(input)?;
 
     match instruction {
-      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request)
+      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request),
+      OracleInstruction::HandleResponse(response) => Ok(())
     }
   }
 

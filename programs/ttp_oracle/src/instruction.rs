@@ -5,8 +5,9 @@ use solana_program::{
   program_pack::{ Pack, Sealed },
 };
 use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
-use crate::request::{
-  Request,
+use crate::{
+  request::Request,
+  response::Response,
 };
 
 #[repr(C, u16)]
@@ -19,7 +20,10 @@ pub enum OracleInstruction {
     // The request to be made by the oracle
     request: Request
   },
-  
+  /**
+   * 0. The program id that should receive the callback
+   */
+  HandleResponse(Response)
 }
 impl Sealed for OracleInstruction {}
 impl Pack for OracleInstruction {
@@ -48,6 +52,9 @@ impl OracleInstruction {
       0 => Ok(OracleInstruction::CreateRequest {
         request: Request::unpack_from_slice(&data)?
       }),
+      1 => Ok(OracleInstruction::HandleResponse(
+        Response::unpack_from_slice(&data)?
+      )),
       _ => Err(ProgramError::InvalidInstructionData),
     }
   }
@@ -59,6 +66,11 @@ impl OracleInstruction {
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
         request.pack_into_slice(data);
       },
+      OracleInstruction::HandleResponse(response) => {
+        let tag: u16 = 1;
+        kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
+        response.pack_into_slice(data);
+      }
       // TODO propogate error here?
     }
   }
