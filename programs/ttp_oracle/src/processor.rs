@@ -6,8 +6,9 @@ use crate::{
 use solana_program::{
   account_info::{ next_account_info, AccountInfo },
   entrypoint::ProgramResult,
+  program_error::ProgramError,
   program_pack::Pack,
-  pubkey::Pubkey
+  pubkey::Pubkey,
 };
 use arrayref::{ array_ref, array_mut_ref };
 
@@ -52,10 +53,13 @@ impl Processor {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::format;
   use generic_array::GenericArray;
   use solana_program::{
     clock::Epoch,
-    program_stubs
+    info,
+    instruction::Instruction,
+    program_stubs,
   };
   use crate::request::{
     GetArgs,
@@ -94,6 +98,24 @@ mod tests {
           }
       }
   }
+
+  fn invoke_client<'a>(account_infos: &[AccountInfo<'a>], input: &[u8]) -> ProgramResult {
+    let res_data = array_ref![input, 0, 16];
+    // read the data sent back (le u256)
+    let price = u128::from_le_bytes(*res_data);
+    // Log the response
+    info!(&format!("Oracle price response = {}", price));
+    Ok(())
+  }
+
+  fn setup_syscall_stubs() {
+      use std::sync::Once;
+      static ONCE: Once = Once::new();
+
+      ONCE.call_once(|| {
+          program_stubs::set_syscall_stubs(Box::new(TestSyscallStubs {}));
+      });
+    }
 
   fn build_request() -> Request {
     // TODO DRY up this set up as it duplicates set up in request.rs
