@@ -17,9 +17,9 @@ use arrayref::{ array_ref, array_refs };
 pub fn process_handle_response(
   _program_id: &Pubkey,
   accounts: &[AccountInfo],
-  _instruction_data: &[u8],
+  instruction_data: &[u8],
 ) -> ProgramResult {
-  let res_data = array_ref![_instruction_data, 0, 16];
+  let res_data = array_ref![instruction_data, 0, 16];
   // read the data sent back (le u256)
   let price = u128::from_le_bytes(*res_data);
   // Log the response
@@ -28,7 +28,7 @@ pub fn process_handle_response(
 }
 
 pub fn process_add_request(
-  _program_id: &Pubkey,
+  program_id: &Pubkey,
   accounts: &[AccountInfo],
   _instruction_data: &[u8],
 ) -> ProgramResult {
@@ -36,7 +36,7 @@ pub fn process_add_request(
   let oracle_program_account = next_account_info(accounts_iter)?;
   let oracle_account = next_account_info(accounts_iter)?;
   
-  let request = create_example_request(_program_id);
+  let request = create_example_request(program_id);
   
   let ix = create_request(
       oracle_program_account.key, 

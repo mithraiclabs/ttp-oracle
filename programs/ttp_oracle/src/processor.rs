@@ -14,6 +14,8 @@ use solana_program::{
 };
 use arrayref::{ array_ref, array_mut_ref, mut_array_refs };
 
+pub const CALL_BACK_DETERMINANT: u8 = 255;
+
 pub struct Processor {}
 impl Processor {
 
@@ -56,10 +58,10 @@ impl Processor {
     // send a cross program invocation to the second account
     let client_program_account = next_account_info(accounts_iter)?;
     let data = &mut [0u8; (Response::LEN + 1 as usize)];
-    response.pack_into_slice(&mut data[1..(Response::LEN + 1 as usize)]);
-    let tag_int: u8 = 1;
-    let tag = array_mut_ref![data, 0, 1];
-    *tag = tag_int.to_le_bytes();
+    let determinant_size: usize = 1;
+    response.pack_into_slice(&mut data[1..(Response::LEN + determinant_size)]);
+    let determinant = array_mut_ref![data, 0, 1];
+    *determinant = CALL_BACK_DETERMINANT.to_le_bytes();
     let accounts = vec![];
     let ix = Instruction {
       program_id: *client_program_account.key,
