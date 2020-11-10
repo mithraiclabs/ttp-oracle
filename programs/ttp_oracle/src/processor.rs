@@ -126,7 +126,7 @@ mod tests {
 
   fn invoke_client<'a>(account_infos: &[AccountInfo<'a>], input: &[u8]) -> ProgramResult {
     let res_data = array_ref![input, 0, 16];
-    // read the data sent back (le u256)
+    // read the data sent back (le u128)
     let price = u128::from_le_bytes(*res_data);
     // return the response for testing purposes
     Ok(())
@@ -156,10 +156,10 @@ mod tests {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_256_task = Task::SolUint256;
+    let uint_128_task = Task::Uint128;
 
     return Request {
-      tasks: [get_task, json_parse_task, uint_256_task],
+      tasks: [get_task, json_parse_task, uint_128_task],
       call_back_program: Pubkey::new_unique()
     };
   }
