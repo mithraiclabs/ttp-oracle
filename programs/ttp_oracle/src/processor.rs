@@ -6,11 +6,13 @@ use crate::{
 use solana_program::{
   account_info::{ next_account_info, AccountInfo },
   entrypoint::ProgramResult,
+  instruction::Instruction,
   program_error::ProgramError,
   program_pack::Pack,
+  program::invoke,
   pubkey::Pubkey,
 };
-use arrayref::{ array_ref, array_mut_ref };
+use arrayref::{ array_ref, array_mut_ref, mut_array_refs };
 
 pub struct Processor {}
 impl Processor {
@@ -46,6 +48,25 @@ impl Processor {
   }
 
   pub fn process_handle_response(accounts: &[AccountInfo], response: &Response) -> ProgramResult {
+    // clear the account data
+    let accounts_iter = &mut accounts.iter();
+    let oracle_account = next_account_info(accounts_iter)?;
+    let mut data = oracle_account.try_borrow_mut_data()?;
+    data.copy_from_slice(&[0u8; Request::LEN]);
+    // send a cross program invocation to the second account
+    let client_program_account = next_account_info(accounts_iter)?;
+    let data = &mut [0u8; (Response::LEN + 1 as usize)];
+    response.pack_into_slice(&mut data[1..(Response::LEN + 1 as usize)]);
+    let tag_int: u8 = 1;
+    let tag = array_mut_ref![data, 0, 1];
+    *tag = tag_int.to_le_bytes();
+    let accounts = vec![];
+    let ix = Instruction {
+      program_id: *client_program_account.key,
+      accounts,
+      data: data.to_vec()
+    };
+    invoke(&ix, &[client_program_account.clone()]);
     Ok(())
   }
 }
@@ -103,8 +124,7 @@ mod tests {
     let res_data = array_ref![input, 0, 16];
     // read the data sent back (le u256)
     let price = u128::from_le_bytes(*res_data);
-    // Log the response
-    info!(&format!("Oracle price response = {}", price));
+    // return the response for testing purposes
     Ok(())
   }
 
@@ -167,12 +187,14 @@ mod tests {
     let program_id = Pubkey::default();
     let oracle_id = Pubkey::default();
     let mut lamports = 0;
+    let mut lamports2 = 0;
     // account data buffer with the size of a request
     let request = build_request();
     let mut data_buffer = [1u8; Request::LEN];
     request.pack_into_slice(&mut data_buffer);
-    let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
-    let accounts = vec![account];
+    let callback_program_account = AccountInfo::new(&CLIENT_PROGRAM_ID, false, false, &mut lamports2, &mut [], &program_id, true, Epoch::default());
+    let oracle_data_account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
+    let accounts = vec![oracle_data_account, callback_program_account];
 
     let response_val: u128 = 15439;
     let response = Response {
@@ -186,7 +208,6 @@ mod tests {
     let account_data_slice = array_ref![account_data, 0, Request::LEN];
     assert_eq!(account_data_slice, &[0u8; Request::LEN]);
 
-    // TODO it should call a X function invocation
-    
+    // verify it returned the response from the cross program stub
   }
 }

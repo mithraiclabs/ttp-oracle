@@ -21,7 +21,8 @@ pub enum OracleInstruction {
     request: Request
   },
   /**
-   * 0. The program id that should receive the callback
+   * 0. The Account id for the oracle data
+   * 1. The program id that should receive the callback
    */
   HandleResponse(Response)
 }
