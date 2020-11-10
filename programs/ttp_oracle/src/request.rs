@@ -1,4 +1,6 @@
+use crate::PUBLIC_KEY_LEN;
 use solana_program::{
+  pubkey::Pubkey,
   program_error::ProgramError,
   program_pack::{ Pack, Sealed },
 };
@@ -67,7 +69,7 @@ impl Pack for JsonParseArgs {
 pub enum Task {
   HttpGet(GetArgs),
   JsonParse(JsonParseArgs),
-  SolUint256
+  Uint128
 }
 
 impl Task {
@@ -77,7 +79,7 @@ impl Task {
         GetArgs::unpack_from_slice(&data)?
       )),
       1 => Ok(Task::JsonParse(JsonParseArgs::unpack_from_slice(&data)?)),
-      2 => Ok(Task::SolUint256),
+      2 => Ok(Task::Uint128),
       _ => Err(ProgramError::InvalidAccountData),
     }
   }
@@ -94,7 +96,7 @@ impl Task {
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
         task.pack_into_slice(&mut task_data[0..12]);
       },
-      Task::SolUint256 => {
+      Task::Uint128 => {
         let tag: u16 = 2;
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
       }
@@ -125,32 +127,34 @@ pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
   pub tasks: [Task; 3], 
-  pub offset: u32
+  pub call_back_program: Pubkey,
 }
 impl Sealed for Request {}
 impl Pack for Request {
-  const LEN: usize  = 112;
+  const LEN: usize  = 140;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 112];
-    let (task_1, task_2, task_3, offset) = array_refs![src, 36, 36, 36, 4];
+    let src = array_ref![src, 0, Request::LEN];
+    let (task_1, task_2, task_3, program_id_bytes) = 
+      array_refs![src, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN];
+    let call_back_program = Pubkey::new(program_id_bytes);
     return Ok(Request {
       tasks: [
         Task::unpack_from_slice(task_1)?,
         Task::unpack_from_slice(task_2)?,
         Task::unpack_from_slice(task_3)?
       ],
-      offset: u32::from_le_bytes(*offset)
+      call_back_program: call_back_program
     });
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 112];
-    let (task_1, task_2, task_3, offset) =
-    mut_array_refs![dst, 36, 36, 36, 4];
+    let dst = array_mut_ref![dst, 0, Request::LEN];
+    let (task_1, task_2, task_3, call_back_program) =
+    mut_array_refs![dst, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN];
     self.tasks[0].pack_into_slice(task_1);
     self.tasks[1].pack_into_slice(task_2);
     self.tasks[2].pack_into_slice(task_3);
-    *offset = self.offset.to_le_bytes();
+    *call_back_program = self.call_back_program.to_bytes()
   }
 }
 
@@ -240,23 +244,23 @@ mod tests {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_256_task = Task::SolUint256;
+    let uint_128_task = Task::Uint128;
     let httpget_tag = [0 as u8; 2];
     let json_tag: [u8; 2] = [1, 0];
-    let uint256_tag: [u8; 2] = [2, 0];
+    let uint128_tag: [u8; 2] = [2, 0];
 
     let request = Request {
-      tasks: [get_task, json_parse_task, uint_256_task],
-      offset: 0
+      tasks: [get_task, json_parse_task, uint_128_task],
+      call_back_program: Pubkey::new_unique(),
     };
 
-    let &mut mut serialized_request = &mut [0 as u8; 36 * 3 + 4];
+    let &mut mut serialized_request = &mut [0 as u8; Task::LEN * 3 + PUBLIC_KEY_LEN];
     request.pack_into_slice(&mut serialized_request);
     assert_eq!(serialized_request[0..2], httpget_tag);
     assert_eq!(serialized_request[2..36], *url_bytes);
     assert_eq!(serialized_request[36..38], json_tag);
     assert_eq!(serialized_request[38..50], *path_bytes);
-    assert_eq!(serialized_request[72..74], uint256_tag);
+    assert_eq!(serialized_request[72..74], uint128_tag);
 
     let deserialized_request: Request = Request::unpack_from_slice(&serialized_request).unwrap();
     assert_eq!(deserialized_request, request);
