@@ -1,4 +1,5 @@
 use crate::{
+  PUBLIC_KEY_LEN,
   instruction::{ OracleInstruction },
   request::Request,
   response::Response,
@@ -75,6 +76,7 @@ impl Processor {
 
 #[cfg(test)]
 mod tests {
+  use crate::PUBLIC_KEY_LEN;
   use super::*;
   use std::format;
   use generic_array::GenericArray;
@@ -92,9 +94,9 @@ mod tests {
   };
 
   // test program id for ttp-oralce program
-  const TTP_ORACLE_PROGRAM_ID: Pubkey = Pubkey::new_from_array([1u8; 32]);
+  const TTP_ORACLE_PROGRAM_ID: Pubkey = Pubkey::new_from_array([1u8; PUBLIC_KEY_LEN]);
   // test program id for the client program that consumes ttp-oracle
-  const CLIENT_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; 32]);
+  const CLIENT_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; PUBLIC_KEY_LEN]);
 
   // stub the cross program invocation.
   // This was mainly ripped from solana-program-library repo in stake-pool
