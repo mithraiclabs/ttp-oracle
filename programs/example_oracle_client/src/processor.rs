@@ -12,11 +12,11 @@ use solana_bpf_ttp_oracle::{
     request::{ GetArgs, GetParams, JsonParseArgs, Request, Task }
 };
 use generic_array::GenericArray;
-use arrayref::{ array_ref, array_refs };
+use arrayref::array_ref;
 
 pub fn process_handle_response(
   _program_id: &Pubkey,
-  accounts: &[AccountInfo],
+  _accounts: &[AccountInfo],
   instruction_data: &[u8],
 ) -> ProgramResult {
   let res_data = array_ref![instruction_data, 0, 16];

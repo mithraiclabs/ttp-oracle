@@ -6,6 +6,7 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use arrayref::{ array_ref, array_refs };
+use solana_bpf_ttp_oracle::processor::CALL_BACK_DETERMINANT;
 
 pub mod processor;
 
@@ -29,7 +30,7 @@ fn process_instruction(
     0 => {
       processor::process_add_request(program_id, accounts, &instruction_data[0..])
     },
-    1 => {
+    CALL_BACK_DETERMINANT => {
       processor::process_handle_response(program_id, accounts, &instruction_data[0..])
     },
     _ => Err(ProgramError::InvalidInstructionData),
