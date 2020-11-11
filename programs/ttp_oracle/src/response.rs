@@ -1,28 +1,44 @@
 use solana_program::{
-  instruction::{ AccountMeta, Instruction },
   program_error::ProgramError,
-  pubkey::Pubkey,
-  program_pack::{ Pack, Sealed },
+  program_pack::{ IsInitialized, Pack, Sealed },
 };
 use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
 
+const RESPONSE_DATA_LEN: usize = 16;
+const CALLBACK_DETERMINANT_LEN: usize = 1;
+
+type ResponseData = [u8; 16];
+
 #[derive(Debug, PartialEq)]
 pub struct Response {
-  pub data: [u8; 16]
+  pub data: ResponseData
+}
+
+impl Response {
+  const CALLBACK_DETERMINANT: u8 = 255;
 }
 
 impl Sealed for Response {}
+impl IsInitialized for Response {
+  fn is_initialized(&self) -> bool {
+    true
+  }
+}
 impl Pack for Response {
-  const LEN: usize = 16;
+  const LEN: usize = RESPONSE_DATA_LEN + CALLBACK_DETERMINANT_LEN;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, Response::LEN];
+    let (_, data) = array_refs![&src, CALLBACK_DETERMINANT_LEN, RESPONSE_DATA_LEN];
     Ok(Response {
-      data: *src
+      data: *data,
     })
   }
-   fn pack_into_slice(&self, dst: &mut [u8]) {
-      dst.copy_from_slice(&self.data);
-    }
+  fn pack_into_slice(&self, dst: &mut [u8]) {
+    let dest = array_mut_ref![dst, 0, Response::LEN];
+    let (determinant, data) = mut_array_refs![dest, CALLBACK_DETERMINANT_LEN, RESPONSE_DATA_LEN];
+    determinant.copy_from_slice(&u8::to_le_bytes(Response::CALLBACK_DETERMINANT));
+    data.copy_from_slice(&self.data);
+  }
 }
 
 #[cfg(test)]
@@ -37,10 +53,17 @@ mod tests {
     };
 
     let &mut mut serialized_response = &mut [0 as u8; Response::LEN];
-    response.pack_into_slice(&mut serialized_response);
-    assert_eq!(serialized_response[0..16], response_val.to_le_bytes());
+    Response::pack(response, &mut serialized_response).unwrap();
+    let serialized_ref = array_ref![serialized_response, 0, Response::LEN]; 
+    let (det, resp) = array_refs![serialized_ref, CALLBACK_DETERMINANT_LEN, RESPONSE_DATA_LEN];
+    assert_eq!(resp, &response_val.to_le_bytes());
+    assert_eq!(det, &Response::CALLBACK_DETERMINANT.to_le_bytes());
 
-    let deserialized_response: Response = Response::unpack_from_slice(&serialized_response).unwrap();
+    let response = Response {
+      data: response_val.to_le_bytes()
+    };
+
+    let deserialized_response: Response = Response::unpack(&serialized_response).unwrap(); // Response::unpack_from_slice(&serialized_response).unwrap();
 
     assert_eq!(deserialized_response, response);
   }

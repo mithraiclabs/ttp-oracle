@@ -15,7 +15,8 @@ use solana_program::{
 };
 use arrayref::{ array_ref, array_mut_ref, mut_array_refs };
 
-pub const CALL_BACK_DETERMINANT: u8 = 255;
+pub const CALLBACK_DETERMINANT: u8 = 255;
+pub const CALLBACK_DETERMINANT_SIZE: usize = 1;
 
 pub struct Processor {}
 impl Processor {
@@ -24,8 +25,8 @@ impl Processor {
     let instruction = OracleInstruction::unpack(input)?;
 
     match instruction {
-      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, &request),
-      OracleInstruction::HandleResponse(response) => Self::process_handle_response(accounts, &response),
+      OracleInstruction::CreateRequest { request } => Self::process_create_request(accounts, request),
+      OracleInstruction::HandleResponse(response) => Self::process_handle_response(accounts, response),
     }
   }
 
@@ -34,34 +35,23 @@ impl Processor {
    * TODO allow handling more than 1 request. Current implementation simply overwrites the 
    *  entire account data buffer
    */
-  pub fn process_create_request(accounts: &[AccountInfo], request: &Request) -> ProgramResult {
+  pub fn process_create_request(accounts: &[AccountInfo], request: Request) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let oracle_account = next_account_info(accounts_iter)?;
-
-    let mut data = oracle_account.try_borrow_mut_data()?;
-    let mut serialized_request = [0u8; Request::LEN];
-    request.pack_into_slice(&mut serialized_request);
-    
-    let dst = array_mut_ref![data, 0, Request::LEN];
-    // overwrite account data
-    dst.copy_from_slice(&serialized_request);
+    Request::pack(request, &mut oracle_account.data.borrow_mut())?;
 
     Ok(())
   }
 
-  pub fn process_handle_response(accounts: &[AccountInfo], response: &Response) -> ProgramResult {
+  pub fn process_handle_response(accounts: &[AccountInfo], response: Response) -> ProgramResult {
     // clear the account data
     let accounts_iter = &mut accounts.iter();
     let oracle_account = next_account_info(accounts_iter)?;
-    let mut data = oracle_account.try_borrow_mut_data()?;
-    data.copy_from_slice(&[0u8; Request::LEN]);
+    oracle_account.data.borrow_mut().copy_from_slice(&[0u8; Request::LEN]);
     // send a cross program invocation to the second account
     let client_program_account = next_account_info(accounts_iter)?;
-    let data = &mut [0u8; (Response::LEN + 1 as usize)];
-    let determinant_size: usize = 1;
-    response.pack_into_slice(&mut data[1..(Response::LEN + determinant_size)]);
-    let determinant = array_mut_ref![data, 0, 1];
-    *determinant = CALL_BACK_DETERMINANT.to_le_bytes();
+    let data = &mut [0u8; Response::LEN];
+    Response::pack(response, data)?;
     let accounts = vec![];
     let ix = Instruction {
       program_id: *client_program_account.key,
@@ -75,16 +65,21 @@ impl Processor {
 
 #[cfg(test)]
 mod tests {
-  use crate::PUBLIC_KEY_LEN;
+  use crate::{ 
+    instruction::*,
+    PUBLIC_KEY_LEN,
+  };
   use super::*;
-  use std::format;
   use generic_array::GenericArray;
   use solana_program::{
     clock::Epoch,
-    info,
     instruction::Instruction,
     program_stubs,
   };
+  use solana_sdk::account::{
+    create_is_signer_account_infos, Account
+};
+
   use crate::request::{
     GetArgs,
     GetParams,
@@ -96,6 +91,22 @@ mod tests {
   const TTP_ORACLE_PROGRAM_ID: Pubkey = Pubkey::new_from_array([1u8; PUBLIC_KEY_LEN]);
   // test program id for the client program that consumes ttp-oracle
   const CLIENT_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; PUBLIC_KEY_LEN]);
+
+
+  fn do_process_instruction(
+    instruction: Instruction,
+    accounts: Vec<&mut Account>,
+) -> ProgramResult {
+    let mut meta = instruction
+        .accounts
+        .iter()
+        .zip(accounts)
+        .map(|(account_meta, account)| (&account_meta.pubkey, account_meta.is_signer, account))
+        .collect::<Vec<_>>();
+
+    let account_infos = create_is_signer_account_infos(&mut meta);
+    Processor::process(&instruction.program_id, &account_infos, &instruction.data)
+}
 
   // stub the cross program invocation.
   // This was mainly ripped from solana-program-library repo in stake-pool
@@ -159,34 +170,31 @@ mod tests {
 
     return Request {
       tasks: [get_task, json_parse_task, uint_128_task],
-      call_back_program: Pubkey::new_unique()
+      call_back_program: Pubkey::new(&[3u8; PUBLIC_KEY_LEN]),
     };
   }
 
   #[test]
   fn test_process_create_request() {
-    let program_id = Pubkey::default();
-    let oracle_id = Pubkey::default();
-    let mut lamports = 0;
+    let program_id = Pubkey::new_unique();
+    let oracle_id = Pubkey::new_unique();
     // account data buffer with the size of a request
+    let request_to_move = build_request();
+    let mut oracle_account = Account::new(0, Request::LEN, &program_id);
+
+    let ix = create_request(&program_id, &oracle_id, request_to_move).unwrap();
+
+    do_process_instruction(ix, vec![&mut oracle_account]).unwrap();
     let request = build_request();
-    let mut data_buffer = vec![1; Request::LEN];
-    let account = AccountInfo::new(&oracle_id, false, true, &mut lamports, &mut data_buffer, &program_id, false, Epoch::default());
-    let accounts = vec![account];
 
-
-    let ret = Processor::process_create_request(&accounts, &request);
-    assert!(ret.is_ok());
-    
-    let account_data = accounts[0].data.borrow();
-
-    let deserialized_request: Request = Request::unpack_from_slice(&account_data).unwrap();
+    let deserialized_request: Request = Request::unpack(&oracle_account.data).unwrap();
 
     assert_eq!(deserialized_request, request);
   }
 
   #[test]
   fn test_process_handle_response() {
+    setup_syscall_stubs();
     let program_id = Pubkey::default();
     let oracle_id = Pubkey::default();
     let mut lamports = 0;
@@ -203,14 +211,12 @@ mod tests {
     let response = Response {
       data: response_val.to_le_bytes()
     };
-    let ret = Processor::process_handle_response(&accounts, &response);
+    let ret = Processor::process_handle_response(&accounts, response);
     assert!(ret.is_ok());
 
     // it should clear the account data
     let account_data = accounts[0].data.borrow();
     let account_data_slice = array_ref![account_data, 0, Request::LEN];
     assert_eq!(account_data_slice, &[0u8; Request::LEN]);
-
-    // verify it returned the response from the cross program stub
   }
 }

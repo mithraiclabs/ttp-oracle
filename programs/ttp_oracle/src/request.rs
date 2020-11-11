@@ -2,7 +2,7 @@ use crate::{ PUBLIC_KEY_LEN };
 use solana_program::{
   pubkey::Pubkey,
   program_error::ProgramError,
-  program_pack::{ Pack, Sealed },
+  program_pack::{ IsInitialized, Pack, Sealed },
 };
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use generic_array::typenum::U34;
@@ -129,9 +129,15 @@ pub struct Request {
   pub tasks: [Task; 3], 
   pub call_back_program: Pubkey,
 }
+
 impl Sealed for Request {}
+impl IsInitialized for Request {
+  fn is_initialized(&self) -> bool {
+      true
+  }
+}
 impl Pack for Request {
-  const LEN: usize  = 140;
+  const LEN: usize  = Task::LEN * 3 + PUBLIC_KEY_LEN;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, Request::LEN];
     let (task_1, task_2, task_3, program_id_bytes) = 
@@ -161,6 +167,28 @@ impl Pack for Request {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  fn create_sample_request() -> Request {
+    let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
+    let path_bytes = b"result.price";
+    let json_args = JsonParseArgs {
+      path: *path_bytes
+    };
+    let params = GetParams {
+      get: *GenericArray::from_slice(url_bytes)
+    };
+    let args = GetArgs {
+      params: params
+    };
+    let get_task = Task::HttpGet(args);
+    let json_parse_task = Task::JsonParse(json_args);
+    let uint_128_task = Task::Uint128;
+
+    Request {
+      tasks: [get_task, json_parse_task, uint_128_task],
+      call_back_program: Pubkey::new_unique(),
+    }
+  }
   
   #[test]
   fn test_pack_unpack_get_params() {
@@ -231,30 +259,14 @@ mod tests {
 
   #[test]
   fn test_pack_unpack_request() {
+    let request = create_sample_request();
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
     let path_bytes = b"result.price";
-    let json_args = JsonParseArgs {
-      path: *path_bytes
-    };
-    let params = GetParams {
-      get: *GenericArray::from_slice(url_bytes)
-    };
-    let args = GetArgs {
-      params: params
-    };
-    let get_task = Task::HttpGet(args);
-    let json_parse_task = Task::JsonParse(json_args);
-    let uint_128_task = Task::Uint128;
     let httpget_tag = [0 as u8; 2];
     let json_tag: [u8; 2] = [1, 0];
     let uint128_tag: [u8; 2] = [2, 0];
 
-    let request = Request {
-      tasks: [get_task, json_parse_task, uint_128_task],
-      call_back_program: Pubkey::new_unique(),
-    };
-
-    let &mut mut serialized_request = &mut [0 as u8; Task::LEN * 3 + PUBLIC_KEY_LEN];
+    let &mut mut serialized_request = &mut [0 as u8; Request::LEN];
     request.pack_into_slice(&mut serialized_request);
     assert_eq!(serialized_request[0..2], httpget_tag);
     assert_eq!(serialized_request[2..36], *url_bytes);
