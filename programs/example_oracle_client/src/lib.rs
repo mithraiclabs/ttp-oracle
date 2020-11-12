@@ -31,7 +31,7 @@ fn process_instruction(
     },
     CALLBACK_DETERMINANT => {
       let instruction_data = array_ref![instruction_data, 0, 17];
-      let (tag, input) = array_refs![instruction_data, 1, 16];
+      let (_tag, input) = array_refs![instruction_data, 1, 16];
       processor::process_handle_response(program_id, accounts, &input[0..])
     },
     _ => Err(ProgramError::InvalidInstructionData),

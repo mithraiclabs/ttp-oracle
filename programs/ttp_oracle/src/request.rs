@@ -5,17 +5,27 @@ use solana_program::{
   program_pack::{ IsInitialized, Pack, Sealed },
 };
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
-use generic_array::typenum::U34;
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::{ 
+  ArrayLength, 
+  GenericArray,
+  typenum::U34
+};
 
-#[derive(Debug, PartialEq)]
+pub type RequestIndex = u8;
+
+pub const TASK_ARRAY_SIZE: usize = 3;
+pub const REQUEST_QUEUE_SIZE: usize = 10;
+pub const REQUEST_INDEX_SIZE: usize = 1;
+
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct GetParams<N: ArrayLength<u8>> {
   pub get: GenericArray<u8, N> // 34 bytes of UTF 8 encoded data "https://ftx.us/api/markets/BTC/USD" for initial PoC
 }
 
 impl Sealed for GetParams<U34> {}
 impl Pack for GetParams<U34> {
-  const LEN: usize  = 34;
+  const LEN: usize = 34;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let get = src;
     Ok(GetParams {
@@ -28,7 +38,7 @@ impl Pack for GetParams<U34> {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GetArgs {
   pub params: GetParams<U34>
 }
@@ -46,7 +56,7 @@ impl Pack for GetArgs {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct JsonParseArgs {
   pub path: [u8; 12] // 12 bytes of UTF 8 encoded data. "result.price" for initial PoC
 }
@@ -65,7 +75,7 @@ impl Pack for JsonParseArgs {
 }
 
 #[repr(C, u16)]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Task {
   HttpGet(GetArgs),
   JsonParse(JsonParseArgs),
@@ -122,12 +132,26 @@ impl Pack for Task {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
-  pub tasks: [Task; 3], 
+  pub tasks: [Task; TASK_ARRAY_SIZE], 
   pub call_back_program: Pubkey,
+  pub index: RequestIndex,
+}
+
+impl Request {
+  /// Check the first 8 bytes of Request buffer. If the first 8 bytes
+  /// are 0, then the Request is determined empty.
+  /// 
+  /// This function must check at least the first 3 bytes, since the
+  /// first two could be 0 as the initial Task enum tag.
+  fn is_empty_buffer(buf: &[u8; Request::LEN]) -> bool {
+    u64::from_le_bytes(*array_ref![buf, 0, 8]) == 0
+  }
+
+  
 }
 
 impl Sealed for Request {}
@@ -137,11 +161,11 @@ impl IsInitialized for Request {
   }
 }
 impl Pack for Request {
-  const LEN: usize  = Task::LEN * 3 + PUBLIC_KEY_LEN;
+  const LEN: usize  = Task::LEN * TASK_ARRAY_SIZE + PUBLIC_KEY_LEN + REQUEST_INDEX_SIZE;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, Request::LEN];
-    let (task_1, task_2, task_3, program_id_bytes) = 
-      array_refs![src, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN];
+    let (task_1, task_2, task_3, program_id_bytes, index_bytes) = 
+      array_refs![src, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
     let call_back_program = Pubkey::new(program_id_bytes);
     return Ok(Request {
       tasks: [
@@ -149,18 +173,66 @@ impl Pack for Request {
         Task::unpack_from_slice(task_2)?,
         Task::unpack_from_slice(task_3)?
       ],
-      call_back_program: call_back_program
+      call_back_program: call_back_program,
+      index: u8::from_le_bytes(*index_bytes)
     });
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
     let dst = array_mut_ref![dst, 0, Request::LEN];
-    let (task_1, task_2, task_3, call_back_program) =
-    mut_array_refs![dst, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN];
+    let (task_1, task_2, task_3, call_back_program, index) =
+    mut_array_refs![dst, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
     self.tasks[0].pack_into_slice(task_1);
     self.tasks[1].pack_into_slice(task_2);
     self.tasks[2].pack_into_slice(task_3);
-    *call_back_program = self.call_back_program.to_bytes()
+    *call_back_program = self.call_back_program.to_bytes();
+    index.copy_from_slice(&[self.index]);
+  }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RequestQueue {
+  pub requests: Box<[Option<Request>; REQUEST_QUEUE_SIZE]>,
+}
+
+impl Sealed for RequestQueue {}
+impl IsInitialized for RequestQueue {
+  fn is_initialized(&self) -> bool {
+      true
+  }
+}
+impl Pack for RequestQueue {
+  const LEN: usize = Request::LEN * REQUEST_QUEUE_SIZE;
+
+  fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let mut requests: Box<[Option<Request>; REQUEST_QUEUE_SIZE]> = Box::new([None, None, None, None, None, None, None, None, None, None]);
+    for i in 0..REQUEST_QUEUE_SIZE {
+      let offset = Request::LEN * i;
+      let request_buf = array_ref![src, offset, Request::LEN];
+      if !Request::is_empty_buffer(&request_buf) {
+        let request = Request::unpack(array_ref![src, offset, Request::LEN])?;
+        requests[i] = Some(request);
+      }
+    }
+
+    Ok(RequestQueue {
+      requests: requests
+    })
+  }
+
+  fn pack_into_slice(&self, dst: &mut [u8]) {
+    for i in 0..REQUEST_QUEUE_SIZE {
+      if self.requests[i].is_none() {
+        continue;
+      }
+      let request = self.requests[i].clone().unwrap();
+
+
+      let offset = Request::LEN * i;
+      let dst_request_buf = array_mut_ref![dst, offset, Request::LEN];
+      // TODO maybe add better ProgramError here or in the Request::pack?
+      Request::pack(request, dst_request_buf).unwrap();
+    }
   }
 }
 
@@ -186,7 +258,8 @@ mod tests {
 
     Request {
       tasks: [get_task, json_parse_task, uint_128_task],
-      call_back_program: Pubkey::new_unique(),
+      call_back_program: Pubkey::new(&[4u8; PUBLIC_KEY_LEN]),
+      index: 0,
     }
   }
   
@@ -258,6 +331,17 @@ mod tests {
   }
 
   #[test]
+  fn test_request_is_empty() {
+    let empty_request_buffer = [0u8; Request::LEN];
+    assert!(Request::is_empty_buffer(&empty_request_buffer));
+
+    let mut request_buffer = [0u8; Request::LEN];
+    let request = create_sample_request();
+    Request::pack(request, &mut request_buffer).unwrap();
+    assert_eq!(Request::is_empty_buffer(&request_buffer), false);
+  }
+
+  #[test]
   fn test_pack_unpack_request() {
     let request = create_sample_request();
     let url_bytes = b"https://ftx.us/api/markets/BTC/USD";
@@ -276,5 +360,46 @@ mod tests {
 
     let deserialized_request: Request = Request::unpack_from_slice(&serialized_request).unwrap();
     assert_eq!(deserialized_request, request);
+  }
+
+  #[test]
+  fn test_pack_unpack_request_queue() {
+    let mut empty_request_queue_buffer = [0u8; RequestQueue::LEN];
+    let empty_request_queue = RequestQueue::unpack(&empty_request_queue_buffer).unwrap();
+    
+    assert_eq!(empty_request_queue, RequestQueue {
+      requests: Box::new([None, None, None, None, None, None, None, None, None, None])
+    });
+
+    RequestQueue::pack(RequestQueue {
+      requests: Box::new([None, None, None, None, None, None, None, None, None, None])
+    }, &mut empty_request_queue_buffer).unwrap();
+
+    assert_eq!(empty_request_queue_buffer, [0u8; RequestQueue::LEN]);
+
+    let mut expected_single_request_queue_buffer = [0u8; RequestQueue::LEN];
+    let request_queue_buffer = array_mut_ref![expected_single_request_queue_buffer, 0, RequestQueue::LEN];
+    let (first_request, _rest, last_request) = mut_array_refs![request_queue_buffer, Request::LEN, RequestQueue::LEN - 2 * Request::LEN, Request::LEN];
+
+    let request = create_sample_request();
+    Request::pack(request, first_request).unwrap();
+    let request = create_sample_request();
+    Request::pack(request, last_request).unwrap();
+
+    let single_queue = RequestQueue::unpack(&expected_single_request_queue_buffer).unwrap();
+    let request1 = create_sample_request();
+    let request2 = create_sample_request();
+    assert_eq!(single_queue, RequestQueue {
+      requests: Box::new([Some(request1), None, None, None, None, None, None, None, None, Some(request2)]),
+    });
+    
+    let mut single_queue_buffer = [0u8; RequestQueue::LEN];
+    let request1 = create_sample_request();
+    let request2 = create_sample_request();
+    RequestQueue::pack(RequestQueue {
+      requests: Box::new([Some(request1), None, None, None, None, None, None, None, None, Some(request2)]),
+    }, &mut single_queue_buffer).unwrap();
+
+    assert_eq!(single_queue_buffer, expected_single_request_queue_buffer);
   }
 }

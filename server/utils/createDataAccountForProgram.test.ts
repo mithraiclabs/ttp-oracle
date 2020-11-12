@@ -8,13 +8,13 @@ describe('createDataAccountForProgram', () => {
     const dataAccount = await createDataAccountForProgram(
       solanaTestHelper.connection,
       payerAccount,
-      firstProgramId
+      firstProgramId,
     );
 
     expect(dataAccount).toBeDefined();
 
     const accountInfo = await solanaTestHelper.connection.getAccountInfo(
-      dataAccount.publicKey
+      dataAccount.publicKey,
     );
 
     expect(accountInfo!.owner.equals(firstProgramId)).toBe(true);

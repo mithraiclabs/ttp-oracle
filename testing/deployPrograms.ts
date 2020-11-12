@@ -7,7 +7,7 @@ import TestHelper, { LOCALNET_URL } from './testHelper';
   await solanaTestHelper.deployContracts();
   if (Object.keys(solanaTestHelper.programs).length === 0) {
     console.warn(
-      'No programs were deployed. Try building your program with `yarn build`'
+      'No programs were deployed. Try building your program with `yarn build`',
     );
   }
 })();

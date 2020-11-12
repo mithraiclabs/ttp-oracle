@@ -21,7 +21,7 @@ declare module 'buffer-layout' {
   export function seq(
     element: Layout,
     count: number,
-    property?: string
+    property?: string,
   ): Sequence;
   export function struct(arr: Layout[]);
   export function u8(property?: string): Layout;
@@ -30,7 +30,7 @@ declare module 'buffer-layout' {
   export function union(
     discriminator: Layout,
     defaultLayout?: Layout,
-    property?: string
+    property?: string,
   ): Union;
   export function utf8(maxSpan?: number, property?: string): UTF8;
 }

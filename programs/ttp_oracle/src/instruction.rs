@@ -6,6 +6,7 @@ use solana_program::{
 };
 use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
 use crate::{
+  oracle_account::OracleAccount,
   request::Request,
   response::Response,
 };
@@ -28,12 +29,12 @@ pub enum OracleInstruction {
 }
 impl Sealed for OracleInstruction {}
 impl Pack for OracleInstruction {
-  const LEN: usize  = 142;
+  const LEN: usize = OracleAccount::LEN + 2;
 
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, OracleInstruction::LEN];
-    let (tag, serialized_request) = array_refs![src, 2, Request::LEN];
-    return OracleInstruction::decode(*tag, *serialized_request);
+    let (tag, serialized_oracle_account) = array_refs![src, 2, OracleAccount::LEN];
+    return OracleInstruction::decode(*tag, serialized_oracle_account);
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
@@ -41,21 +42,27 @@ impl Pack for OracleInstruction {
     let (
       tag_dst,
       data_dest,
-    ) = mut_array_refs![dst, 2, Request::LEN];
+    ) = mut_array_refs![dst, 2, OracleAccount::LEN];
     self.encode(tag_dst, data_dest)
   }
 }
 
 impl OracleInstruction {
 
-  fn decode(tag: [u8; 2], data: [u8; Request::LEN]) -> Result<Self, ProgramError> {
+  fn decode(tag: [u8; 2], data: &[u8]) -> Result<Self, ProgramError> {
     match u16::from_le_bytes(tag) {
-      0 => Ok(OracleInstruction::CreateRequest {
-        request: Request::unpack_from_slice(&data)?
-      }),
-      1 => Ok(OracleInstruction::HandleResponse(
-        Response::unpack_from_slice(&data)?
-      )),
+      0 => { 
+        let ix_data = array_ref![data, 2, Request::LEN];
+        Ok(OracleInstruction::CreateRequest {
+            request: Request::unpack_from_slice(ix_data)?
+        })
+      },
+      1 => {
+        let ix_data = array_ref![data, 2, Response::LEN];
+        Ok(OracleInstruction::HandleResponse(
+          Response::unpack_from_slice(ix_data)?
+        ))
+      },
       _ => Err(ProgramError::InvalidInstructionData),
     }
   }
@@ -81,10 +88,10 @@ impl OracleInstruction {
     if instruction_data.len() < 2 {
       return Err(ProgramError::InvalidInstructionData);
     }
-    let instruction_data = array_ref![instruction_data, 0, OracleInstruction::LEN];
 
-    let (tag, data) = array_refs![instruction_data, 2, Request::LEN];
-    OracleInstruction::decode(*tag, *data)
+    let tag = array_ref![instruction_data, 0, 2];
+
+    OracleInstruction::decode(*tag, instruction_data)
   }
 }
 /// Generate the Instruction for CreateRequest.
@@ -132,10 +139,11 @@ mod tests {
     let json_parse_task = Task::JsonParse(json_args);
     let uint_128_task = Task::Uint128;
 
-    return Request {
+    Request {
       tasks: [get_task, json_parse_task, uint_128_task],
-      call_back_program: Pubkey::new_unique()
-    };
+      call_back_program: Pubkey::new_unique(),
+      index: 0,
+    }
   }
 
   #[test]

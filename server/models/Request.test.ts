@@ -24,6 +24,7 @@ describe('Request', () => {
         },
       ],
       callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
+      index: 1,
     });
   });
 });

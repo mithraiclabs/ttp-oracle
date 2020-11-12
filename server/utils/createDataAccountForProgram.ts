@@ -7,7 +7,7 @@ import {
   Transaction,
 } from '@solana/web3.js';
 
-import { REQUEST_LAYOUT } from '../models/Request';
+import { ORACLE_ACCOUNT_LAYOUT } from '../models/OracleAccount';
 
 export const createDataAccountForProgram = async (
   connection: Connection,
@@ -15,7 +15,7 @@ export const createDataAccountForProgram = async (
   programId: PublicKey,
 ): Promise<Account> => {
   const dataAccount = new Account();
-  const space = REQUEST_LAYOUT.span;
+  const space = ORACLE_ACCOUNT_LAYOUT.span;
   const lamps = await connection.getMinimumBalanceForRentExemption(space);
   const createAccountTX = new Transaction().add(
     SystemProgram.createAccount({

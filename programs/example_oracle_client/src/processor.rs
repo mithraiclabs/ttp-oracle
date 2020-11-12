@@ -9,7 +9,7 @@ use solana_program::{
 };
 use solana_bpf_ttp_oracle::{
     instruction::create_request,
-    request::{ GetArgs, GetParams, JsonParseArgs, Request, Task }
+    request::{ GetArgs, GetParams, JsonParseArgs, Request, Task },
 };
 use generic_array::GenericArray;
 use arrayref::array_ref;
@@ -63,10 +63,11 @@ fn create_example_request(_program_id: &Pubkey) -> Request {
     let json_parse_task = Task::JsonParse(json_args);
     let uint_128_task = Task::Uint128;
 
-    return Request {
+    Request {
       tasks: [get_task, json_parse_task, uint_128_task],
-      call_back_program: *_program_id
-    };
+      call_back_program: *_program_id,
+      index: 0,
+    }
 }
 
 #[cfg(test)]
@@ -79,6 +80,7 @@ mod tests {
       program_stubs,
     };
   use solana_bpf_ttp_oracle::{ 
+    oracle_account::OracleAccount,
     processor::Processor,
     request::Request,
   };
@@ -134,7 +136,7 @@ mod tests {
       let oracle_id = Pubkey::default();
       let mut lamports1 = 0;
       let mut lamports2 = 0;
-      let mut oracle_data_buffer = vec![0; Request::LEN];
+      let mut oracle_data_buffer = vec![0; OracleAccount::LEN];
       
       let oracle_account = AccountInfo::new(&oracle_id, false, true, &mut lamports1, &mut oracle_data_buffer, &TTP_ORACLE_PROGRAM_ID, false, Epoch::default());
       let oracle_program_account = AccountInfo::new(&TTP_ORACLE_PROGRAM_ID, false, false, &mut lamports2, &mut [], &oracle_program_owner, true, Epoch::default());
@@ -143,10 +145,16 @@ mod tests {
       let ret = process_add_request(&CLIENT_PROGRAM_ID, &accounts, &[]);
       assert!(ret.is_ok());
       let request = create_example_request(&CLIENT_PROGRAM_ID);
-      let mut expected_request = vec![0; Request::LEN];
+      let mut expected_request = [0; Request::LEN];
       request.pack_into_slice(&mut expected_request);
 
-      assert_eq!(oracle_data_buffer, expected_request);
-      assert_ne!(oracle_data_buffer, vec![1; Request::LEN]);
+      let oracle_data = OracleAccount::unpack(&oracle_data_buffer).unwrap();
+      let ret_request = oracle_data.request_queue.requests[0].clone().unwrap();
+      assert_eq!(ret_request, request);
+
+      let mut request_buffer = [0u8; Request::LEN];
+      Request::pack(ret_request, &mut request_buffer).unwrap();
+
+      assert_eq!(request_buffer, expected_request);
     }
 }

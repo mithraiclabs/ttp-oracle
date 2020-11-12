@@ -6,7 +6,6 @@ import {
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js';
-import { REQUEST_LAYOUT } from '../models/Request';
 const INSTRUCTION_SIZE = 2;
 
 export const sendTransactionToHandleResponse = async (
@@ -15,24 +14,18 @@ export const sendTransactionToHandleResponse = async (
   programId: PublicKey,
   oracleId: PublicKey,
   callerProgramId: PublicKey,
-  responseData: Buffer,
+  response: Buffer,
 ): Promise<string> => {
   const handleResponseInstruction = Buffer.alloc(INSTRUCTION_SIZE);
   handleResponseInstruction.writeUInt8(1);
-  // TODO change this so it doesn't have to be the size of the request...
-  const instructionBuffer = Buffer.alloc(
-    REQUEST_LAYOUT.span + INSTRUCTION_SIZE,
-  );
-  Buffer.concat([handleResponseInstruction, responseData]).copy(
-    instructionBuffer,
-  );
+
   const createRequestTxInstruction = new TransactionInstruction({
     keys: [
       { pubkey: oracleId, isSigner: false, isWritable: true },
       { pubkey: callerProgramId, isSigner: false, isWritable: false },
     ],
     programId,
-    data: instructionBuffer,
+    data: Buffer.concat([handleResponseInstruction, response]),
   });
 
   return await sendAndConfirmTransaction(

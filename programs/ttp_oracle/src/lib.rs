@@ -1,4 +1,5 @@
 pub mod instruction;
+pub mod oracle_account;
 pub mod processor;
 pub mod request;
 pub mod response;

@@ -1,4 +1,12 @@
-import { TASK_LAYOUT, TASK_TAG_LAYOUT } from '../server/models/Task';
+import {
+  Task,
+  TaskVariantKeys,
+  TASK_LAYOUT,
+  TASK_TAG_LAYOUT,
+} from '../server/models/Task';
+import { REQUEST_LAYOUT } from '../server/models/Request';
+import { RESPONSE_LAYOUT } from '../server/models/Response';
+import { MAX_REQUESTS } from '../server/models/RequestQueue';
 
 export const mockUrlBase = 'https://ftx.us';
 export const mockUrlPath = '/api/markets/BTC/USD';
@@ -23,6 +31,8 @@ mockUrlBuffer.copy(httpGetTaskBuffer);
 mockPathBuffer.copy(jsonParseTaskBuffer);
 export const mockCallerProgramIdBuffer = Buffer.alloc(32);
 
+const requestIndex = Buffer.alloc(1);
+requestIndex.writeUIntLE(1, 0, 1);
 export const mockRequestBuffer = Buffer.concat([
   getTagBuffer,
   httpGetTaskBuffer,
@@ -31,4 +41,211 @@ export const mockRequestBuffer = Buffer.concat([
   uint256Tagbuffer,
   uint256TaskBuffer,
   mockCallerProgramIdBuffer,
+  requestIndex,
+]);
+
+export const mockRequestQueueBuffer = Buffer.alloc(
+  REQUEST_LAYOUT.span * MAX_REQUESTS,
+);
+mockRequestBuffer.copy(mockRequestQueueBuffer);
+mockRequestBuffer.copy(mockRequestQueueBuffer, REQUEST_LAYOUT.span);
+
+export const mockOracleAccountBuffer = Buffer.concat([mockRequestQueueBuffer]);
+
+const requests = [
+  {
+    tasks: [
+      {
+        [TaskVariantKeys[Task.HTTP_GET]]: Array.from(mockUrlBuffer),
+      },
+      {
+        [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
+      },
+      {
+        [TaskVariantKeys[Task.UINT_128]]: true,
+      },
+    ],
+    callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
+    index: 1,
+  },
+  {
+    tasks: [
+      {
+        [TaskVariantKeys[Task.HTTP_GET]]: Array.from(mockUrlBuffer),
+      },
+      {
+        [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
+      },
+      {
+        [TaskVariantKeys[Task.UINT_128]]: true,
+      },
+    ],
+    callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
+    index: 1,
+  },
+];
+const blankRequest = {
+  callerProgramIdBuffer: [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ],
+  tasks: [
+    {
+      urlBuffer: [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ],
+    },
+    {
+      urlBuffer: [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ],
+    },
+    {
+      urlBuffer: [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ],
+    },
+  ],
+  index: 0,
+};
+while (requests.length < MAX_REQUESTS) {
+  requests.push(blankRequest);
+}
+
+export const decodedRequestQueue = { requests };
+
+const responseDataBuffer = Buffer.alloc(16);
+responseDataBuffer.writeUInt32LE(16645);
+export const mockResponseBuffer = Buffer.concat([
+  responseDataBuffer,
+  requestIndex,
 ]);
