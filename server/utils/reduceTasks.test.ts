@@ -41,7 +41,10 @@ describe('reduceTasks', () => {
       });
 
     const result = await reduceTasks(request.tasks);
+    const buf = Buffer.alloc(16);
+    const intResponse = parseInt(price.toString());
+    buf.writeUInt32LE(intResponse);
     expect(nockRequest.isDone()).toBe(true);
-    expect(result).toEqual(price);
+    expect(result).toEqual(buf);
   });
 });
