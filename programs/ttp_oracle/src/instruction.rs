@@ -140,7 +140,7 @@ mod tests {
     let uint_128_task = Task::Uint32;
 
     Request {
-      tasks: [get_task, json_parse_task, uint_128_task],
+      tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: Pubkey::new_unique(),
       index: 0,
     }

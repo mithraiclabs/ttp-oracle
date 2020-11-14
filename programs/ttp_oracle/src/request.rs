@@ -115,6 +115,11 @@ impl Task {
   }
 }
 impl Sealed for Task {}
+impl IsInitialized for Task {
+  fn is_initialized(&self) -> bool {
+    true
+  }
+}
 impl Pack for Task {
   const LEN: usize  = 36;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
@@ -136,7 +141,7 @@ impl Pack for Task {
 pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
-  pub tasks: [Task; TASK_ARRAY_SIZE], 
+  pub tasks: Vec<Task>,
   pub call_back_program: Pubkey,
   pub index: RequestIndex,
 }
@@ -163,28 +168,33 @@ impl IsInitialized for Request {
 impl Pack for Request {
   const LEN: usize  = Task::LEN * TASK_ARRAY_SIZE + PUBLIC_KEY_LEN + REQUEST_INDEX_SIZE;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    // initialize the Vec with the fixed size to prevent reallocation
+    let mut tasks = Vec::with_capacity(TASK_ARRAY_SIZE);
+    for i in 0..TASK_ARRAY_SIZE {
+      let offset = i * Task::LEN;
+      let task_buf = array_ref![src, offset, Task::LEN];
+      tasks.push(Task::unpack(task_buf)?);
+    }
     let src = array_ref![src, 0, Request::LEN];
-    let (task_1, task_2, task_3, program_id_bytes, index_bytes) = 
-      array_refs![src, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
+    let (_tasks, program_id_bytes, index_bytes) = 
+      array_refs![src, Task::LEN * TASK_ARRAY_SIZE, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
     let call_back_program = Pubkey::new(program_id_bytes);
     return Ok(Request {
-      tasks: [
-        Task::unpack_from_slice(task_1)?,
-        Task::unpack_from_slice(task_2)?,
-        Task::unpack_from_slice(task_3)?
-      ],
+      tasks,
       call_back_program: call_back_program,
       index: u8::from_le_bytes(*index_bytes)
     });
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    for (i, task) in self.tasks.iter().enumerate() {
+      let offset = i * Task::LEN;
+      let task_buf = array_mut_ref![dst, offset, Task::LEN];
+      task.pack_into_slice(task_buf);
+    }
     let dst = array_mut_ref![dst, 0, Request::LEN];
-    let (task_1, task_2, task_3, call_back_program, index) =
-    mut_array_refs![dst, Task::LEN, Task::LEN, Task::LEN, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
-    self.tasks[0].pack_into_slice(task_1);
-    self.tasks[1].pack_into_slice(task_2);
-    self.tasks[2].pack_into_slice(task_3);
+    let (_tasks, call_back_program, index) =
+    mut_array_refs![dst, Task::LEN * TASK_ARRAY_SIZE, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
     *call_back_program = self.call_back_program.to_bytes();
     index.copy_from_slice(&[self.index]);
   }
@@ -257,7 +267,7 @@ mod tests {
     let uint_128_task = Task::Uint32;
 
     Request {
-      tasks: [get_task, json_parse_task, uint_128_task],
+      tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: Pubkey::new(&[4u8; PUBLIC_KEY_LEN]),
       index: 0,
     }

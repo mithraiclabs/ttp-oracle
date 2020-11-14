@@ -63,7 +63,7 @@ fn create_example_request(_program_id: &Pubkey) -> Request {
     let uint_128_task = Task::Uint32;
 
     Request {
-      tasks: [get_task, json_parse_task, uint_128_task],
+      tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: *_program_id,
       index: 0,
     }
