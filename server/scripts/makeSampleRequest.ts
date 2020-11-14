@@ -8,7 +8,7 @@ const CLIET_PROGRAM_KEY = 'example_oracle_client.so';
 const ORACLE_PROGRAM_KEY = 'solana_bpf_ttp_oracle.so';
 
 /**
- * yarn send-test [ORACLE_ID]
+ * yarn send-test [ORACLE_ID] [--loop]
  */
 const main = async () => {
   const deployedJsonRaw = fs.readFileSync('./testDeployed.json');
