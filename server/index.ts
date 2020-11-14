@@ -40,14 +40,14 @@ const main = async () => {
       programId,
     );
     oracleId = oracleAccount.publicKey;
-    console.log('Generated data account at address ', oracleId.toString());
   } else {
     oracleId = new PublicKey(process.env.ORACLE_ID);
   }
 
   const ws = new Connection(cluster.socket[environment]);
 
-  console.log(`listening to Oracle: ${oracleId.toString()}...`);
+  console.log('Howdy, World!');
+  console.log(`listening to Oracle: ${oracleId.toString()}`);
 
   ws.onAccountChange(
     oracleId,

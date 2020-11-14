@@ -15,6 +15,7 @@
     "localnet:update": "solana-localnet update",
     "localnet:up": "solana-localnet up",
     "setup-server": "./scripts/setup.sh",
+    "send-test": "npx ts-node ./server/scripts/makeSampleRequest.ts",
     "test": "jest --config ./jest.config.js",
     "test:setup": "npx ts-node ./testing/deployPrograms.ts",
     "test:programs": "./scripts/test.sh",

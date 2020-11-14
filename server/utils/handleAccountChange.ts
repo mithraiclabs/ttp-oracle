@@ -40,10 +40,11 @@ export const createHandleAccountChange = (
         const callerProgramId = new PublicKey(callerProgramIdBuf);
 
         console.log(
-          `Handling request for Caller Program ${callerProgramId.toString()}`,
+          `Handling request ${
+            request.index
+          } for Caller Program ${callerProgramId.toString()}`,
         );
         const responseData = await reduceTasks(request.tasks);
-        console.log('Writing response ', responseData);
         const requestIndexBuffer = Buffer.alloc(1);
         requestIndexBuffer.writeUInt8(request.index);
         const response = Buffer.concat([
@@ -61,6 +62,7 @@ export const createHandleAccountChange = (
           callerProgramId,
           response,
         );
+        console.log('Response sent Oracle Program!');
         // After the TX has been confirmed remove the index from inflight
         delete requestsInFlight[request.index];
       }

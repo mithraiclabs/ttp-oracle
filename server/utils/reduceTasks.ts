@@ -20,14 +20,17 @@ export const reduceTasks = async (
     switch (variant) {
       case Task.HTTP_GET:
         const url = Buffer.from(value).toString().replace(/\0/g, '');
+        console.log(`TASK::HTTP_GET making request to ${url}`);
         return fetch(url);
       case Task.JSON_PARSE:
         const path = Buffer.from(value).toString().replace(/\0/g, '');
         const json = await resolvedAcc.json();
+        console.log(`TASK::JSON_PARSE check response for path ${path}`);
         return _get(json, path);
       case Task.UINT32:
         const buf = Buffer.alloc(4);
         const intResponse = parseInt(resolvedAcc);
+        console.log(`TASK::UINT32 converting ${intResponse} to buffer`);
         buf.writeUInt32LE(intResponse);
         return buf;
       default:

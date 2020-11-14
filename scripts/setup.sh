@@ -21,6 +21,4 @@ output=$(yarn --cwd ../server/ generate-oracle-account)
 
 export ORACLE_ID=$(echo "$output" | sed -n '3 p')
 
-yarn --cwd ../server/ build
-
 yarn --cwd ../server/ start

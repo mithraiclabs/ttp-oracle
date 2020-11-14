@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc --build ./tsconfig.server.json",
     "generate-oracle-account": "npx ts-node ./scripts/generateOracleDataAccount.ts",
-    "start": "node ./dist/index.js",
+    "start": "npx ts-node ./index.ts",
     "test": "jest"
   },
   "author": "",
