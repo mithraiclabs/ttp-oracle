@@ -20,7 +20,7 @@ describe('Request', () => {
           [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
         },
         {
-          [TaskVariantKeys[Task.UINT_128]]: true,
+          [TaskVariantKeys[Task.UINT32]]: true,
         },
       ],
       callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),

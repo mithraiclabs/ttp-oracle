@@ -5,7 +5,7 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
-use arrayref::{ array_ref, array_refs };
+use arrayref::{ array_ref };
 use solana_bpf_ttp_oracle::processor::CALLBACK_DETERMINANT;
 
 pub mod processor;
@@ -30,9 +30,7 @@ fn process_instruction(
       processor::process_add_request(program_id, accounts, &[])
     },
     CALLBACK_DETERMINANT => {
-      let instruction_data = array_ref![instruction_data, 0, 17];
-      let (_tag, input) = array_refs![instruction_data, 1, 16];
-      processor::process_handle_response(program_id, accounts, &input[0..])
+      processor::process_handle_response(program_id, accounts, &instruction_data[1..])
     },
     _ => Err(ProgramError::InvalidInstructionData),
   }

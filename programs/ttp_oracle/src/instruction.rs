@@ -137,7 +137,7 @@ mod tests {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_128_task = Task::Uint128;
+    let uint_128_task = Task::Uint32;
 
     Request {
       tasks: [get_task, json_parse_task, uint_128_task],

@@ -79,7 +79,7 @@ impl Pack for JsonParseArgs {
 pub enum Task {
   HttpGet(GetArgs),
   JsonParse(JsonParseArgs),
-  Uint128
+  Uint32,
 }
 
 impl Task {
@@ -89,7 +89,7 @@ impl Task {
         GetArgs::unpack_from_slice(&data)?
       )),
       1 => Ok(Task::JsonParse(JsonParseArgs::unpack_from_slice(&data)?)),
-      2 => Ok(Task::Uint128),
+      2 => Ok(Task::Uint32),
       _ => Err(ProgramError::InvalidAccountData),
     }
   }
@@ -106,7 +106,7 @@ impl Task {
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
         task.pack_into_slice(&mut task_data[0..12]);
       },
-      Task::Uint128 => {
+      Task::Uint32 => {
         let tag: u16 = 2;
         kind.copy_from_slice(&tag.to_le_bytes()[0..2]);
       }
@@ -254,7 +254,7 @@ mod tests {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_128_task = Task::Uint128;
+    let uint_128_task = Task::Uint32;
 
     Request {
       tasks: [get_task, json_parse_task, uint_128_task],
@@ -348,7 +348,7 @@ mod tests {
     let path_bytes = b"result.price";
     let httpget_tag = [0 as u8; 2];
     let json_tag: [u8; 2] = [1, 0];
-    let uint128_tag: [u8; 2] = [2, 0];
+    let uint32_tag: [u8; 2] = [2, 0];
 
     let &mut mut serialized_request = &mut [0 as u8; Request::LEN];
     request.pack_into_slice(&mut serialized_request);
@@ -356,7 +356,7 @@ mod tests {
     assert_eq!(serialized_request[2..36], *url_bytes);
     assert_eq!(serialized_request[36..38], json_tag);
     assert_eq!(serialized_request[38..50], *path_bytes);
-    assert_eq!(serialized_request[72..74], uint128_tag);
+    assert_eq!(serialized_request[72..74], uint32_tag);
 
     let deserialized_request: Request = Request::unpack_from_slice(&serialized_request).unwrap();
     assert_eq!(deserialized_request, request);

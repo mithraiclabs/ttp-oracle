@@ -152,9 +152,9 @@ mod tests {
   }
 
   fn invoke_client<'a>(_account_infos: &[AccountInfo<'a>], input: &[u8]) -> ProgramResult {
-    let res_data = array_ref![input, 0, 16];
-    // read the data sent back (le u128)
-    let _price = u128::from_le_bytes(*res_data);
+    let res_data = array_ref![input, 0, 4];
+    // read the data sent back (le u32)
+    let _price = u32::from_le_bytes(*res_data);
     // return the response for testing purposes
     Ok(())
   }
@@ -183,7 +183,7 @@ mod tests {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_128_task = Task::Uint128;
+    let uint_128_task = Task::Uint32;
 
     Request {
       tasks: [get_task, json_parse_task, uint_128_task],
@@ -276,7 +276,7 @@ mod tests {
     };
     OracleAccount::pack(oracle_account_data, &mut account.data).unwrap();
     
-    let response_val: u128 = 15439;
+    let response_val: u32 = 15439;
     let response = Response {
       data: response_val.to_le_bytes(),
       request_queue_index: 1,

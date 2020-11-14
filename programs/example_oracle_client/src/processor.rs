@@ -3,7 +3,6 @@ use solana_program::{
     account_info::{ next_account_info, AccountInfo, },
     program::invoke,
     entrypoint::ProgramResult,
-    program_pack::Pack,
     pubkey::Pubkey,
     info
 };
@@ -19,9 +18,9 @@ pub fn process_handle_response(
   _accounts: &[AccountInfo],
   instruction_data: &[u8],
 ) -> ProgramResult {
-  let res_data = array_ref![instruction_data, 0, 16];
-  // read the data sent back (le u128)
-  let price = u128::from_le_bytes(*res_data);
+  let res_data = array_ref![instruction_data, 0, 4];
+  // read the data sent back (le u32)
+  let price = u32::from_le_bytes(*res_data);
   // Log the response
   info!(&format!("Oracle price response = {}", price));
   Ok(())
@@ -61,7 +60,7 @@ fn create_example_request(_program_id: &Pubkey) -> Request {
     };
     let get_task = Task::HttpGet(args);
     let json_parse_task = Task::JsonParse(json_args);
-    let uint_128_task = Task::Uint128;
+    let uint_128_task = Task::Uint32;
 
     Request {
       tasks: [get_task, json_parse_task, uint_128_task],
@@ -77,6 +76,7 @@ mod tests {
       clock::Epoch,
       instruction::Instruction,
       program_error::ProgramError,
+      program_pack::Pack,
       program_stubs,
     };
   use solana_bpf_ttp_oracle::{ 

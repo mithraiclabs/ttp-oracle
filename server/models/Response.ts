@@ -8,7 +8,7 @@ export interface Response {
 
 export const RESPONSE_LAYOUT = struct([
   u8('determinant'),
-  seq(u8(), 16, 'data'),
+  seq(u8(), 4, 'data'),
   u8('index'),
 ]);
 

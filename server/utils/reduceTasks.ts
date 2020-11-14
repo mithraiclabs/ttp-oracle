@@ -25,10 +25,9 @@ export const reduceTasks = async (
         const path = Buffer.from(value).toString().replace(/\0/g, '');
         const json = await resolvedAcc.json();
         return _get(json, path);
-      case Task.UINT_128:
-        const buf = Buffer.alloc(16);
+      case Task.UINT32:
+        const buf = Buffer.alloc(4);
         const intResponse = parseInt(resolvedAcc);
-        // TODO update this to handle uint128
         buf.writeUInt32LE(intResponse);
         return buf;
       default:

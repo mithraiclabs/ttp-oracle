@@ -62,7 +62,7 @@ const requests = [
         [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
       },
       {
-        [TaskVariantKeys[Task.UINT_128]]: true,
+        [TaskVariantKeys[Task.UINT32]]: true,
       },
     ],
     callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
@@ -77,7 +77,7 @@ const requests = [
         [TaskVariantKeys[Task.JSON_PARSE]]: Array.from(mockPathBuffer),
       },
       {
-        [TaskVariantKeys[Task.UINT_128]]: true,
+        [TaskVariantKeys[Task.UINT32]]: true,
       },
     ],
     callerProgramIdBuffer: Array.from(mockCallerProgramIdBuffer),
@@ -243,9 +243,11 @@ while (requests.length < MAX_REQUESTS) {
 
 export const decodedRequestQueue = { requests };
 
-const responseDataBuffer = Buffer.alloc(16);
+const responseDataBuffer = Buffer.alloc(4);
 responseDataBuffer.writeUInt32LE(16645);
 export const mockResponseBuffer = Buffer.concat([
+  // padding for determinant
+  Buffer.alloc(1),
   responseDataBuffer,
   requestIndex,
 ]);

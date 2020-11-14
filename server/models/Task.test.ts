@@ -39,9 +39,9 @@ describe('Task', () => {
 
       const task = TASK_LAYOUT.decode(buffer);
       expect(task).toEqual({
-        [TaskVariantKeys[Task.UINT_128]]: true,
+        [TaskVariantKeys[Task.UINT32]]: true,
       });
-      expect(TASK_LAYOUT.getSourceVariant(task)).toEqual(Task.UINT_128);
+      expect(TASK_LAYOUT.getSourceVariant(task)).toEqual(Task.UINT32);
     });
   });
 });

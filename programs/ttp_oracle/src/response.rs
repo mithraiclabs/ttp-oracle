@@ -7,10 +7,10 @@ use solana_program::{
 };
 use arrayref::{ array_ref, array_refs, array_mut_ref, mut_array_refs };
 
-pub const RESPONSE_DATA_LEN: usize = 16;
+pub const RESPONSE_DATA_LEN: usize = 4;
 pub const CALLBACK_DETERMINANT_LEN: usize = 1;
 
-type ResponseData = [u8; 16];
+type ResponseData = [u8; RESPONSE_DATA_LEN];
 
 #[derive(Debug, PartialEq)]
 pub struct Response {
@@ -53,7 +53,7 @@ mod tests {
   
   #[test]
   fn test_pack_unpack_response() {
-    let response_val: u128 = 15439;
+    let response_val: u32 = 15439;
     let response = Response {
       data: response_val.to_le_bytes(),
       request_queue_index: 1,
