@@ -188,6 +188,8 @@ mod tests {
     Request {
       tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: Pubkey::new(&[3u8; PUBLIC_KEY_LEN]),
+      num_accounts: 0,
+      accounts: vec![],
       index: 0,
     }
   }

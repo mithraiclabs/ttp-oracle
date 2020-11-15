@@ -65,6 +65,8 @@ fn create_example_request(_program_id: &Pubkey) -> Request {
     Request {
       tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: *_program_id,
+      num_accounts: 0,
+      accounts: vec![],
       index: 0,
     }
 }

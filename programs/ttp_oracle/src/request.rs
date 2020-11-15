@@ -1,5 +1,6 @@
 use crate::{ PUBLIC_KEY_LEN };
 use solana_program::{
+  instruction::AccountMeta,
   pubkey::Pubkey,
   program_error::ProgramError,
   program_pack::{ IsInitialized, Pack, Sealed },
@@ -13,9 +14,12 @@ use generic_array::{
 
 pub type RequestIndex = u8;
 
-pub const TASK_ARRAY_SIZE: usize = 3;
-pub const REQUEST_QUEUE_SIZE: usize = 10;
+pub const ACCOUNTS_ARRAY_SIZE: usize = 5;
+/// AccountMeta Buffer Layout is [Pubkey, bool, bool]
+pub const ACCOUNTS_META_SIZE: usize = PUBLIC_KEY_LEN + 2;
 pub const REQUEST_INDEX_SIZE: usize = 1;
+pub const REQUEST_QUEUE_SIZE: usize = 10;
+pub const TASK_ARRAY_SIZE: usize = 3;
 
 
 #[derive(Clone, Debug, PartialEq)]
@@ -136,13 +140,26 @@ impl Pack for Task {
       self.encode_task(tag_dst, task_dst)
     }
 }
-
+/// Request struct for storing all information needed by the
+/// Oracle server to read and process Requests.
+/// 
+/// Buffer Layout (in order):
+/// 
+/// | Bytes                              | Name              | Description                                          |
+/// |------------------------------------|-------------------|------------------------------------------------------|
+/// | 3 * Task::LEN                      | tasks             | Array of tasks for server to process                 |
+/// | size_of Pubkey                     | call_back_program | Pubkey of the Caller Program                         |
+/// | 1                                  | num_accounts      | Number of AccountMeta that should proceed            |
+/// | size_of AccountMeta * num_accounts | accounts          | Accounts the Caller program may access to read/write |
+/// | 1                                  | index             | The index of the RequestQueue this Request is stored |
 #[derive(Clone, Debug, PartialEq)]
 pub struct Request {
   // For phase 1 only 3 tasks are required
   // TODO allow more tasks to be added 
   pub tasks: Vec<Task>,
   pub call_back_program: Pubkey,
+  pub num_accounts: u8,
+  pub accounts: Vec<AccountMeta>,
   pub index: RequestIndex,
 }
 
@@ -166,36 +183,84 @@ impl IsInitialized for Request {
   }
 }
 impl Pack for Request {
-  const LEN: usize  = Task::LEN * TASK_ARRAY_SIZE + PUBLIC_KEY_LEN + REQUEST_INDEX_SIZE;
+  const LEN: usize  = Task::LEN * TASK_ARRAY_SIZE + 
+    PUBLIC_KEY_LEN + REQUEST_INDEX_SIZE + 
+    // extra 1 for the numAccounts
+    (ACCOUNTS_META_SIZE * ACCOUNTS_ARRAY_SIZE) + 1;
+
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    let mut offset = 0;
     // initialize the Vec with the fixed size to prevent reallocation
     let mut tasks = Vec::with_capacity(TASK_ARRAY_SIZE);
-    for i in 0..TASK_ARRAY_SIZE {
-      let offset = i * Task::LEN;
+    for _i in 0..TASK_ARRAY_SIZE {
       let task_buf = array_ref![src, offset, Task::LEN];
       tasks.push(Task::unpack(task_buf)?);
+      offset += Task::LEN;
     }
-    let src = array_ref![src, 0, Request::LEN];
-    let (_tasks, program_id_bytes, index_bytes) = 
-      array_refs![src, Task::LEN * TASK_ARRAY_SIZE, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
+    let program_id_bytes = array_ref![src, offset, PUBLIC_KEY_LEN];
     let call_back_program = Pubkey::new(program_id_bytes);
+    offset += PUBLIC_KEY_LEN;
+
+    let num_accounts_buf = array_ref![src, offset, 1];
+    let num_accounts = u8::from_le_bytes(*num_accounts_buf);
+    offset += 1;
+    let mut accounts = Vec::with_capacity(num_accounts.into());
+    // unpack variable number of accounts
+    for _i in 0..num_accounts {
+      let account_meta_buf = array_ref![src, offset, ACCOUNTS_META_SIZE];
+      let (account_pubkey_buf, signer_buf, writable_buf) = array_refs![account_meta_buf, PUBLIC_KEY_LEN, 1, 1];
+      let is_signer = u8::from_le_bytes(*signer_buf) > 0;
+      let account_pubkey = Pubkey::new(account_pubkey_buf);
+      if u8::from_le_bytes(*writable_buf) > 0 {
+        accounts.push(AccountMeta::new(account_pubkey, is_signer));
+      } else {
+        accounts.push(AccountMeta::new_readonly(account_pubkey, is_signer));
+      }
+      offset += ACCOUNTS_META_SIZE;
+    }
+    let index_bytes = array_ref![src, offset, REQUEST_INDEX_SIZE];
     return Ok(Request {
       tasks,
       call_back_program: call_back_program,
+      num_accounts,
+      accounts,
       index: u8::from_le_bytes(*index_bytes)
     });
   }
 
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    for (i, task) in self.tasks.iter().enumerate() {
-      let offset = i * Task::LEN;
+    let mut offset = 0;
+    for task in self.tasks.iter() {
       let task_buf = array_mut_ref![dst, offset, Task::LEN];
       task.pack_into_slice(task_buf);
+      offset += Task::LEN;
     }
-    let dst = array_mut_ref![dst, 0, Request::LEN];
-    let (_tasks, call_back_program, index) =
-    mut_array_refs![dst, Task::LEN * TASK_ARRAY_SIZE, PUBLIC_KEY_LEN, REQUEST_INDEX_SIZE];
-    *call_back_program = self.call_back_program.to_bytes();
+    let program_id_buf = array_mut_ref![dst, offset, PUBLIC_KEY_LEN];
+    *program_id_buf = self.call_back_program.to_bytes();
+    offset += PUBLIC_KEY_LEN;
+
+    let num_accounts_buf = array_mut_ref![dst, offset, 1];
+    num_accounts_buf.copy_from_slice(&u8::to_le_bytes(self.num_accounts));
+    offset += 1;
+
+    for account_meta in self.accounts.iter() {
+      let account_meta_buf = array_mut_ref![dst, offset, ACCOUNTS_META_SIZE];
+      let (account_pubkey_buf, signer_buf, writable_buf) = mut_array_refs![account_meta_buf, PUBLIC_KEY_LEN, 1, 1];
+      account_pubkey_buf.copy_from_slice(&account_meta.pubkey.to_bytes());
+      // TODO extract this out to be reused
+      if account_meta.is_signer {
+        signer_buf.copy_from_slice(&[1u8; 1]);
+      } else {
+        signer_buf.copy_from_slice(&[0u8; 1]);
+      }
+      if account_meta.is_writable {
+        writable_buf.copy_from_slice(&[1u8; 1]);
+      } else {
+        writable_buf.copy_from_slice(&[0u8; 1]);
+      }
+      offset += ACCOUNTS_META_SIZE;
+    }
+    let index = array_mut_ref![dst, offset, REQUEST_INDEX_SIZE];
     index.copy_from_slice(&[self.index]);
   }
 }
@@ -269,6 +334,8 @@ mod tests {
     Request {
       tasks: vec![get_task, json_parse_task, uint_128_task],
       call_back_program: Pubkey::new(&[4u8; PUBLIC_KEY_LEN]),
+      num_accounts: 0,
+      accounts: vec![],
       index: 0,
     }
   }
