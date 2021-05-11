@@ -27,7 +27,7 @@
     "@solana/web3.js": "0.78.2",
     "@types/mz": "^2.7.1",
     "@types/semver": "^7.3.4",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "mz": "^2.7.0"
   },
   "devDependencies": {
